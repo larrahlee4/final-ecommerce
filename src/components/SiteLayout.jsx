@@ -1,5 +1,6 @@
-import { Outlet, NavLink, Link } from 'react-router-dom'
+import { Outlet, NavLink, Link, useLocation } from 'react-router-dom'
 import { useEffect, useState } from 'react'
+import { motion } from 'framer-motion'
 import { supabase } from '../lib/supabase.js'
 import '../App.css'
 
@@ -10,6 +11,7 @@ const linkClass = ({ isActive }) =>
 
 function SiteLayout() {
   const [signedIn, setSignedIn] = useState(false)
+  const location = useLocation()
 
   useEffect(() => {
     const init = async () => {
@@ -84,7 +86,15 @@ function SiteLayout() {
       </header>
 
       <main className="flex-1 px-6 pb-20 pt-10 md:px-16">
-        <Outlet />
+        <motion.div
+          key={location.pathname}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.35, ease: 'easeOut' }}
+        >
+          <Outlet />
+        </motion.div>
       </main>
 
       <footer className="border-t border-[var(--ink)]/10 px-6 py-10 text-sm md:px-16">

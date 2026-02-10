@@ -116,7 +116,7 @@ function Product() {
           </p>
           <div className="flex flex-wrap gap-6 text-sm">
             <div>
-              <p className="font-display text-2xl">${Number(product.price || 0).toFixed(2)}</p>
+              <p className="font-display text-2xl">₱{Number(product.price || 0).toFixed(2)}</p>
               <p className="text-[color:var(--ink)]/70">100ml</p>
             </div>
             <div>
@@ -168,7 +168,7 @@ function Product() {
               </div>
               <p className="font-display text-xl">{item.name}</p>
               <div className="flex items-center justify-between text-sm font-semibold">
-                <span>${Number(item.price || 0).toFixed(2)}</span>
+                <span>₱{Number(item.price || 0).toFixed(2)}</span>
                 <Link
                   to={`/product/${item.slug}`}
                   className="rounded-full bg-[var(--brown)] px-3 py-2 text-xs text-white"

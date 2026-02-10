@@ -1,5 +1,6 @@
 
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
+import { AnimatePresence } from 'framer-motion'
 import SiteLayout from './components/SiteLayout.jsx'
 import Home from './pages/Home.jsx'
 import Shop from './pages/Shop.jsx'
@@ -18,27 +19,30 @@ import CheckoutList from './pages/CheckoutList.jsx'
 import NotFound from './pages/NotFound.jsx'
 
 function App() {
+  const location = useLocation()
   return (
-    <Routes>
-      <Route path="/" element={<SiteLayout />}>
-        <Route index element={<Home />} />
-        <Route path="about" element={<About />} />
-        <Route path="shop" element={<Shop />} />
-        <Route path="products" element={<Shop />} />
-        <Route path="product/:slug" element={<Product />} />
-        <Route path="cart" element={<Cart />} />
-        <Route path="login" element={<Login />} />
-        <Route path="signup" element={<Signup />} />
-        <Route path="dashboard" element={<Dashboard />} />
-        <Route path="admin" element={<AdminDashboard />} />
-        <Route path="profile" element={<Profile />} />
-        <Route path="search" element={<Search />} />
-        <Route path="checkout-list" element={<CheckoutList />} />
-        <Route path="checkout" element={<Checkout />} />
-        <Route path="community" element={<Community />} />
-      <Route path="*" element={<NotFound />} />
-      </Route>
-    </Routes>
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<SiteLayout />}>
+          <Route index element={<Home />} />
+          <Route path="about" element={<About />} />
+          <Route path="shop" element={<Shop />} />
+          <Route path="products" element={<Shop />} />
+          <Route path="product/:slug" element={<Product />} />
+          <Route path="cart" element={<Cart />} />
+          <Route path="login" element={<Login />} />
+          <Route path="signup" element={<Signup />} />
+          <Route path="dashboard" element={<Dashboard />} />
+          <Route path="admin" element={<AdminDashboard />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="search" element={<Search />} />
+          <Route path="checkout-list" element={<CheckoutList />} />
+          <Route path="checkout" element={<Checkout />} />
+          <Route path="community" element={<Community />} />
+          <Route path="*" element={<NotFound />} />
+        </Route>
+      </Routes>
+    </AnimatePresence>
   )
 }
 

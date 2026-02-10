@@ -50,12 +50,12 @@ function CheckoutList() {
                   <div>
                     <p className="font-display text-xl">{item.name}</p>
                     <p className="text-sm text-[var(--ink)]/70">
-                      {item.qty} x ${Number(item.price || 0).toFixed(2)}
+                      {item.qty} x ₱{Number(item.price || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
                 <p className="text-sm font-semibold">
-                  ${(Number(item.price || 0) * item.qty).toFixed(2)}
+                  ₱{(Number(item.price || 0) * item.qty).toFixed(2)}
                 </p>
               </div>
             ))}
@@ -67,15 +67,15 @@ function CheckoutList() {
             <div className="mt-4 space-y-3 text-sm">
               <div className="flex justify-between">
                 <span>Subtotal</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>₱{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between">
                 <span>Estimated tax</span>
-                <span>${(subtotal * 0.08).toFixed(2)}</span>
+                <span>₱{(subtotal * 0.08).toFixed(2)}</span>
               </div>
               <div className="flex justify-between font-semibold">
                 <span>Total</span>
-                <span>${(subtotal * 1.08).toFixed(2)}</span>
+                <span>₱{(subtotal * 1.08).toFixed(2)}</span>
               </div>
             </div>
             <MotionButton

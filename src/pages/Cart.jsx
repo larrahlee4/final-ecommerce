@@ -55,7 +55,7 @@ function Cart() {
                   <div>
                     <p className="font-display text-xl">{item.name}</p>
                     <p className="text-sm text-[color:var(--ink)]/70">
-                      ${Number(item.price || 0).toFixed(2)}
+                      ₱{Number(item.price || 0).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -86,15 +86,15 @@ function Cart() {
         <div className="mt-4 space-y-3 text-sm">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>${subtotal.toFixed(2)}</span>
+            <span>₱{subtotal.toFixed(2)}</span>
           </div>
           <div className="flex justify-between">
             <span>Shipping</span>
-            <span>$0.00</span>
+            <span>₱0.00</span>
           </div>
           <div className="flex justify-between font-semibold">
             <span>Total</span>
-            <span>${subtotal.toFixed(2)}</span>
+            <span>₱{subtotal.toFixed(2)}</span>
           </div>
         </div>
         <MotionButton

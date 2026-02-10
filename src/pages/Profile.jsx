@@ -90,14 +90,14 @@ function Profile() {
                   <div key={item.id} className="flex items-center justify-between">
                     <span>{item.name}</span>
                     <span>
-                      {item.qty} x ${Number(item.price || 0).toFixed(2)}
+                      {item.qty} x ₱{Number(item.price || 0).toFixed(2)}
                     </span>
                   </div>
                 ))}
               </div>
               <div className="mt-4 flex justify-between text-sm font-semibold">
                 <span>Total</span>
-                <span>${Number(order.total || 0).toFixed(2)}</span>
+                <span>₱{Number(order.total || 0).toFixed(2)}</span>
               </div>
             </div>
           ))

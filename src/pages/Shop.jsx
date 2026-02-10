@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import { addToCart } from '../lib/cart.js'
 import MotionButton from '../components/MotionButton.jsx'
+import { motion } from 'framer-motion'
 
 function Shop() {
   const [products, setProducts] = useState([])
@@ -87,15 +88,26 @@ function Shop() {
         ))}
       </div>
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-        {visible.map((item) => (
-          <article key={item.id} className="space-y-4">
-            <div className="overflow-hidden rounded-3xl bg-white shadow-[0_20px_60px_-40px_rgba(59,51,40,0.6)]">
-              <img className="h-44 w-full object-cover" src={item.image_url} alt={item.name} />
+        {visible.map((item, index) => (
+          <motion.article
+            key={item.id}
+            className="space-y-4"
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.35, delay: index * 0.04 }}
+            whileHover={{ y: -6 }}
+          >
+            <div className="group overflow-hidden rounded-2xl bg-white shadow-[0_20px_60px_-40px_rgba(59,51,40,0.6)] transition hover:shadow-[0_30px_70px_-40px_rgba(59,51,40,0.7)]">
+              <img
+                className="aspect-square w-full object-cover transition duration-300 group-hover:scale-105"
+                src={item.image_url}
+                alt={item.name}
+              />
             </div>
             <p className="font-display text-xl">{item.name}</p>
             <p className="text-sm text-[var(--ink)]/70">{item.description}</p>
             <div className="flex items-center justify-between text-sm font-semibold">
-              <span>${Number(item.price || 0).toFixed(2)}</span>
+              <span>₱{Number(item.price || 0).toFixed(2)}</span>
               <div className="flex items-center gap-2">
                 <MotionButton
                   className="rounded-full border border-[var(--brown)] px-3 py-2 text-xs text-[var(--brown)]"
@@ -111,10 +123,10 @@ function Shop() {
                 </Link>
               </div>
             </div>
-          </article>
+          </motion.article>
         ))}
         {visible.length === 0 && (
-          <div className="rounded-3xl border border-[var(--ink)]/10 bg-white/70 p-6 text-sm text-[var(--ink)]/70">
+          <div className="md:col-span-2 lg:col-span-4 rounded-3xl border border-[var(--ink)]/10 bg-white/70 p-10 text-center text-sm text-[var(--ink)]/70">
             No products found for this filter.
           </div>
         )}

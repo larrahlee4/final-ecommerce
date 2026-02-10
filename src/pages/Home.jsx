@@ -56,30 +56,6 @@ function Home() {
       </section>
 
       <section className="space-y-10">
-        <div className="space-y-3 text-center">
-          <p className="text-xs uppercase tracking-[0.3em] text-[var(--ink)]/50">
-            The gentlest ingredients
-          </p>
-          <h2 className="font-display text-3xl text-[var(--taupe)] md:text-4xl">
-            For every skin type, concern, and glow you desire.
-          </h2>
-        </div>
-
-        <div className="flex flex-wrap justify-center gap-3 text-xs uppercase tracking-[0.2em] text-[var(--ink)]/70">
-          {['All', 'Cleansers', 'Toners', 'Serums', 'Moisturizers', 'Eye Care', 'Body', 'Makeup'].map((tag, index) => (
-            <button
-              key={tag}
-              className={`rounded-full border px-4 py-2 ${
-                index === 0
-                  ? 'border-[var(--brown)] bg-[var(--brown)] text-white'
-                  : 'border-[var(--ink)]/10 bg-white'
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
-        </div>
-
         <div className="grid gap-6 lg:grid-cols-3">
           {featured.map((item) => (
             <article key={item.name} className="space-y-4">
@@ -105,7 +81,7 @@ function Home() {
             </article>
           ))}
           {featured.length === 0 && (
-            <div className="rounded-3xl border border-[var(--ink)]/10 bg-white/70 p-6 text-sm text-[var(--ink)]/70">
+            <div className="lg:col-span-3 rounded-3xl border border-[var(--ink)]/10 bg-white/70 p-10 text-center text-sm text-[var(--ink)]/70">
               No featured products yet. Add featured items in the admin dashboard.
             </div>
           )}
@@ -120,7 +96,7 @@ function Home() {
               Long-lasting color with a luxurious velvet finish.
             </p>
             <div className="flex items-center gap-6 text-sm">
-              <span>${Number(item.price || 0).toFixed(2)}</span>
+              <span>₱{Number(item.price || 0).toFixed(2)}</span>
               <MotionButton
                 className="rounded-full bg-[var(--brown)] px-4 py-2 text-xs font-semibold text-white"
                 onClick={() => addToCart(item, 1)}
@@ -131,7 +107,7 @@ function Home() {
           </div>
         ))}
         {smallList.length === 0 && (
-          <div className="rounded-3xl border border-[var(--ink)]/10 bg-white/70 p-6 text-sm text-[var(--ink)]/70">
+          <div className="lg:col-span-3 rounded-3xl border border-[var(--ink)]/10 bg-white/70 p-10 text-center text-sm text-[var(--ink)]/70">
             Add products to showcase them here.
           </div>
         )}
