@@ -42,91 +42,97 @@ function Shop() {
   }, [category, products, sort])
 
   return (
-    <section className="space-y-10">
-      <div className="space-y-3 text-center">
-        <p className="text-xs uppercase tracking-[0.3em] text-[var(--ink)]/60">
-          Product
+    <section className="space-y-8">
+      <div className="border border-[var(--ink)] bg-white px-6 py-8 md:px-10">
+        <p className="text-[11px] font-black uppercase tracking-[0.32em] text-[var(--ink)]/65">Product</p>
+        <h1 className="mt-3 text-4xl font-black uppercase leading-[0.95] md:text-6xl">
+          Curated Veloure essentials
+        </h1>
+        <p className="mt-5 max-w-2xl text-sm leading-6 text-[var(--ink)]/75">
+          Filter by category and sort to find the right item for your routine.
         </p>
-        <h1 className="font-display text-4xl">Curated Veloure essentials</h1>
-        <p className="mx-auto max-w-2xl text-sm text-[var(--ink)]/70">
-          Filter by skin concern, texture, or ingredient to build your ritual.
-        </p>
       </div>
-      <div className="flex flex-wrap justify-center gap-3 text-xs uppercase tracking-[0.2em] text-[var(--ink)]/70">
-        {categories.map((tag) => (
-          <MotionButton
-            key={tag}
-            onClick={() => setCategory(tag)}
-            className={`rounded-full border px-4 py-2 ${
-              category === tag
-                ? 'border-[var(--brown)] bg-[var(--brown)] text-white'
-                : 'border-[var(--ink)]/10 bg-white'
-            }`}
-          >
-            {tag}
-          </MotionButton>
-        ))}
+
+      <div className="space-y-4 border border-[var(--ink)] bg-white p-5 md:p-6">
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--ink)]/65">Category</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {categories.map((tag) => (
+              <MotionButton
+                key={tag}
+                onClick={() => setCategory(tag)}
+                className={`border px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] ${
+                  category === tag
+                    ? 'border-[var(--ink)] bg-[var(--ink)] text-white'
+                    : 'border-[var(--ink)] bg-white text-[var(--ink)]/80'
+                }`}
+              >
+                {tag}
+              </MotionButton>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--ink)]/65">Sort</p>
+          <div className="mt-3 flex flex-wrap gap-3">
+            {[
+              { id: 'recent', label: 'Recently added' },
+              { id: 'popular', label: 'Most popular' },
+              { id: 'price_low', label: 'Price: low' },
+              { id: 'price_high', label: 'Price: high' },
+            ].map((item) => (
+              <MotionButton
+                key={item.id}
+                onClick={() => setSort(item.id)}
+                className={`border px-4 py-2 text-[11px] font-black uppercase tracking-[0.18em] ${
+                  sort === item.id
+                    ? 'border-[var(--ink)] bg-[var(--ink)] text-white'
+                    : 'border-[var(--ink)] bg-white text-[var(--ink)]/80'
+                }`}
+              >
+                {item.label}
+              </MotionButton>
+            ))}
+          </div>
+        </div>
       </div>
-      <div className="flex flex-wrap justify-center gap-3 text-xs uppercase tracking-[0.2em] text-[var(--ink)]/70">
-        {[
-          { id: 'recent', label: 'Recently Added' },
-          { id: 'popular', label: 'Most Popular' },
-          { id: 'price_low', label: 'Price: Low' },
-          { id: 'price_high', label: 'Price: High' },
-        ].map((item) => (
-          <MotionButton
-            key={item.id}
-            onClick={() => setSort(item.id)}
-            className={`rounded-full border px-4 py-2 ${
-              sort === item.id
-                ? 'border-[var(--brown)] bg-[var(--brown)] text-white'
-                : 'border-[var(--ink)]/10 bg-white'
-            }`}
-          >
-            {item.label}
-          </MotionButton>
-        ))}
-      </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {visible.map((item, index) => (
           <motion.article
             key={item.id}
-            className="space-y-4"
+            className="border border-[var(--ink)] bg-white p-4"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.35, delay: index * 0.04 }}
-            whileHover={{ y: -6 }}
+            whileHover={{ y: -4 }}
           >
-            <div className="group overflow-hidden rounded-2xl bg-white shadow-[0_20px_60px_-40px_rgba(59,51,40,0.6)] transition hover:shadow-[0_30px_70px_-40px_rgba(59,51,40,0.7)]">
+            <Link to={`/product/${item.slug}`} className="group block">
               <img
-                className="aspect-square w-full object-cover transition duration-300 group-hover:scale-105"
+                className="aspect-square w-full border border-[var(--ink)] object-cover transition duration-300 group-hover:scale-[1.02]"
                 src={item.image_url}
                 alt={item.name}
               />
-            </div>
-            <p className="font-display text-xl">{item.name}</p>
-            <p className="text-sm text-[var(--ink)]/70">{item.description}</p>
-            <div className="flex items-center justify-between text-sm font-semibold">
-              <span>₱{Number(item.price || 0).toFixed(2)}</span>
-              <div className="flex items-center gap-2">
-                <MotionButton
-                  className="rounded-full border border-[var(--brown)] px-3 py-2 text-xs text-[var(--brown)]"
-                  onClick={() => addToCart(item, 1)}
-                >
-                  Add
-                </MotionButton>
-                <Link
-                  to={`/product/${item.slug}`}
-                  className="rounded-full bg-[var(--brown)] px-3 py-2 text-xs text-white transition hover:opacity-90"
-                >
-                  View
-                </Link>
-              </div>
+            </Link>
+            <p className="mt-4 text-xl font-black uppercase leading-tight">{item.name}</p>
+            <p className="mt-2 min-h-[44px] text-sm leading-5 text-[var(--ink)]/75">
+              {item.description || 'Clean formula with high-performance results.'}
+            </p>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <span className="text-base font-black">PHP {Number(item.price || 0).toFixed(2)}</span>
+              <MotionButton
+                className="border border-[var(--ink)] bg-white px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] transition hover:bg-[var(--ink)] hover:text-white"
+                onClick={() => addToCart(item, 1)}
+              >
+                Add to bag
+              </MotionButton>
             </div>
           </motion.article>
         ))}
+
         {visible.length === 0 && (
-          <div className="md:col-span-2 lg:col-span-4 rounded-3xl border border-[var(--ink)]/10 bg-white/70 p-10 text-center text-sm text-[var(--ink)]/70">
+          <div className="md:col-span-2 lg:col-span-4 border border-[var(--ink)] bg-white p-10 text-center text-sm text-[var(--ink)]/70">
             No products found for this filter.
           </div>
         )}
@@ -136,3 +142,4 @@ function Shop() {
 }
 
 export default Shop
+

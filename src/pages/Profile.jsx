@@ -3,23 +3,11 @@ import { Link, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 import MotionButton from '../components/MotionButton.jsx'
 
-const storageKey = 'veloure_orders'
-
-const loadOrders = () => {
-  if (typeof window === 'undefined') return []
-  const raw = window.localStorage.getItem(storageKey)
-  if (!raw) return []
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return []
-  }
-}
-
 function Profile() {
   const [orders, setOrders] = useState([])
   const [isAdmin, setIsAdmin] = useState(false)
   const [showSignOut, setShowSignOut] = useState(false)
+  const [status, setStatus] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
@@ -32,8 +20,50 @@ function Profile() {
       }
       const role = user.user_metadata?.role ?? 'customer'
       setIsAdmin(role === 'admin')
-      setOrders(loadOrders())
+
+      const { data: orderRows, error: ordersError } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (ordersError) {
+        setStatus(ordersError.message)
+        setOrders([])
+        return
+      }
+
+      const orderList = orderRows ?? []
+      if (orderList.length === 0) {
+        setOrders([])
+        return
+      }
+
+      const orderIds = orderList.map((order) => order.id)
+      const { data: itemRows } = await supabase.from('order_items').select('*').in('order_id', orderIds)
+
+      const itemsByOrderId = (itemRows ?? []).reduce((acc, item) => {
+        const key = item.order_id
+        if (!acc[key]) acc[key] = []
+        acc[key].push({
+          id: item.id ?? `${key}-${item.product_id}`,
+          name: item.product_name ?? 'Product',
+          qty: Number(item.qty || 0),
+          price: Number(item.price || 0),
+        })
+        return acc
+      }, {})
+
+      const mappedOrders = orderList.map((order) => ({
+        id: order.id,
+        date: order.created_at ?? order.date ?? new Date().toISOString(),
+        total: Number(order.total || 0),
+        items: itemsByOrderId[order.id] ?? (Array.isArray(order.items) ? order.items : []),
+      }))
+
+      setOrders(mappedOrders)
     }
+
     loadUser()
   }, [navigate])
 
@@ -43,25 +73,26 @@ function Profile() {
   }
 
   return (
-    <section className="space-y-10">
-      <div className="rounded-[2.5rem] bg-[var(--sand)] p-10">
-        <p className="text-xs uppercase tracking-[0.3em] text-[var(--gold)]">Profile</p>
-        <h1 className="font-display text-4xl">Your purchase history</h1>
-        <p className="mt-3 max-w-2xl text-sm text-[var(--ink)]/70">
+    <section className="space-y-8">
+      <div className="border border-[var(--ink)] bg-white px-6 py-8 md:px-10">
+        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Profile</p>
+        <h1 className="mt-3 text-4xl font-black uppercase leading-none md:text-5xl">Your purchase history</h1>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink)]/75">
           Review your past orders and keep track of your ritual essentials.
         </p>
-        {isAdmin && (
-          <Link
-            to="/admin"
-            className="mt-6 inline-block rounded-full border border-[var(--brown)] px-5 py-2 text-xs uppercase tracking-[0.2em] text-[var(--brown)] transition hover:bg-[var(--brown)] hover:text-white"
-          >
-            Go to Admin Dashboard
-          </Link>
-        )}
-        <div className="mt-6">
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          {isAdmin && (
+            <Link
+              to="/admin"
+              className="border border-[var(--ink)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] transition hover:bg-[var(--ink)] hover:text-white"
+            >
+              Go to admin dashboard
+            </Link>
+          )}
           <MotionButton
             onClick={() => setShowSignOut(true)}
-            className="rounded-full bg-[var(--brown)] px-5 py-2 text-xs font-semibold text-white"
+            className="border border-[var(--ink)] bg-[var(--ink)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-white"
           >
             Sign out
           </MotionButton>
@@ -69,59 +100,64 @@ function Profile() {
       </div>
 
       <div className="space-y-4">
+        {status && (
+          <div className="border border-red-400 bg-red-50 p-4 text-sm text-red-700">
+            {status}
+          </div>
+        )}
+
         {orders.length === 0 ? (
-          <div className="rounded-3xl border border-[var(--ink)]/10 bg-white/80 p-6 text-sm text-[var(--ink)]/70">
+          <div className="border border-[var(--ink)] bg-white p-6 text-sm text-[var(--ink)]/70">
             No purchases yet. Complete a checkout to see your history here.
           </div>
         ) : (
           orders.map((order) => (
-            <div
-              key={order.id}
-              className="rounded-3xl border border-[var(--ink)]/10 bg-white/80 p-6"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="font-display text-2xl">Order {order.id.slice(0, 8)}</p>
-                <p className="text-xs uppercase tracking-[0.2em] text-[var(--gold)]">
+            <article key={order.id} className="border border-[var(--ink)] bg-white p-6">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ink)] pb-3">
+                <p className="text-lg font-black uppercase">Order {order.id.slice(0, 8)}</p>
+                <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65">
                   {new Date(order.date).toLocaleDateString()}
                 </p>
               </div>
-              <div className="mt-4 space-y-2 text-sm text-[var(--ink)]/70">
+
+              <div className="mt-4 space-y-2 text-sm">
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between">
-                    <span>{item.name}</span>
-                    <span>
-                      {item.qty} x ₱{Number(item.price || 0).toFixed(2)}
+                  <div key={item.id} className="flex items-center justify-between gap-3">
+                    <span className="text-[var(--ink)]/80">{item.name}</span>
+                    <span className="text-[var(--ink)]/80">
+                      {item.qty} x PHP {Number(item.price || 0).toFixed(2)}
                     </span>
                   </div>
                 ))}
               </div>
-              <div className="mt-4 flex justify-between text-sm font-semibold">
+
+              <div className="mt-4 flex justify-between border-t border-[var(--ink)] pt-3 text-sm font-black">
                 <span>Total</span>
-                <span>₱{Number(order.total || 0).toFixed(2)}</span>
+                <span>PHP {Number(order.total || 0).toFixed(2)}</span>
               </div>
-            </div>
+            </article>
           ))
         )}
       </div>
 
       {showSignOut && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-6">
-          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-[0_30px_80px_-50px_rgba(59,51,40,0.7)]">
-            <p className="text-xs uppercase tracking-[0.3em] text-[var(--gold)]">Confirm</p>
-            <h2 className="mt-2 font-display text-2xl">Sign out?</h2>
-            <p className="mt-3 text-sm text-[var(--ink)]/70">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-6">
+          <div className="w-full max-w-md border border-[var(--ink)] bg-white p-6">
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Confirm</p>
+            <h2 className="mt-2 text-2xl font-black uppercase">Sign out?</h2>
+            <p className="mt-3 text-sm text-[var(--ink)]/75">
               You can sign back in anytime with your email and password.
             </p>
             <div className="mt-6 flex items-center justify-end gap-3">
               <MotionButton
                 onClick={() => setShowSignOut(false)}
-                className="rounded-full border border-[var(--brown)] px-4 py-2 text-xs uppercase tracking-[0.2em] text-[var(--brown)]"
+                className="border border-[var(--ink)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em]"
               >
                 Cancel
               </MotionButton>
               <MotionButton
                 onClick={handleSignOut}
-                className="rounded-full bg-[var(--brown)] px-4 py-2 text-xs font-semibold text-white"
+                className="border border-[var(--ink)] bg-[var(--ink)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-white"
               >
                 Sign out
               </MotionButton>

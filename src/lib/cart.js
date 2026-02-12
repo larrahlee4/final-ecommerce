@@ -14,6 +14,7 @@ export const getCart = () => {
 export const saveCart = (items) => {
   if (typeof window === 'undefined') return
   window.localStorage.setItem(storageKey, JSON.stringify(items))
+  window.dispatchEvent(new Event('cartChanged'))
 }
 
 export const addToCart = (product, qty = 1) => {

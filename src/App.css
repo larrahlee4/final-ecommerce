@@ -1,12 +1,12 @@
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600&family=Manrope:wght@300;400;500;600&display=swap');
 
 :root {
-  --cream: #f7f2eb;
-  --sand: #e9ddcf;
-  --ink: #2a241e;
-  --taupe: #b9a389;
-  --brown: #3b3328;
-  --gold: #c1a27a;
+  --cream: #f8f3ed;
+  --sand: #d6c2b3;
+  --ink: #2f241f;
+  --taupe: #7b6659;
+  --brown: #4a3428;
+  --gold: #b88a44;
   font-family: 'Manrope', system-ui, sans-serif;
   color: var(--ink);
   background-color: var(--cream);
@@ -15,12 +15,25 @@
 body {
   margin: 0;
   background: var(--cream);
+  color: var(--ink);
 }
 
-.font-display {
-  font-family: 'Cormorant Garamond', serif;
-}
+.font-display { font-family: 'Cormorant Garamond', serif; }
 
-.soft-shadow {
-  box-shadow: 0 28px 60px -30px rgba(59, 51, 40, 0.55);
+.button-brown {
+  background-color: var(--brown);
+  color: white;
+  border-radius: 9999px;
+  padding: 0.5rem 1.5rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  transition: all 0.2s ease-in-out;
 }
+.button-brown:hover { background-color: var(--gold); color: var(--brown); }
+
+.input-brown { border: 1px solid var(--brown); border-radius: 1rem; padding: 0.5rem 1rem; color: var(--ink); outline: none; }
+.input-brown:focus { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(184, 138, 68, 0.28); }
+
+.soft-shadow { box-shadow: 0 28px 60px -30px rgba(74, 52, 40, 0.38); border-radius: 1.5rem; background-color: white; }
+
+h1, h2, h3, h4 { color: var(--brown); }
