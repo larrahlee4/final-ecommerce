@@ -1,180 +1,201 @@
-import { useEffect, useMemo, useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
-import { AnimatePresence, motion } from 'framer-motion'
-import { supabase } from '../../lib/supabase.js'
-import { addToCart } from '../../lib/cart.js'
-import MotionButton from '../../components/MotionButton.jsx'
+import { useEffect, useMemo, useState } from "react";
+import { useParams, Link, useNavigate } from "react-router-dom";
+import { AnimatePresence, motion } from "framer-motion";
+import { supabase } from "../../lib/supabase.js";
+import { addToCart } from "../../lib/cart.js";
+import MotionButton from "../../components/MotionButton.jsx";
 
 function Product() {
-  const { slug } = useParams()
-  const [product, setProduct] = useState(null)
-  const [recommendations, setRecommendations] = useState([])
-  const [reviews, setReviews] = useState([])
-  const [rating, setRating] = useState(5)
-  const [reviewText, setReviewText] = useState('')
-  const [checkedAuth, setCheckedAuth] = useState(false)
-  const [signedIn, setSignedIn] = useState(false)
-  const [qty, setQty] = useState(1)
-  const [openSection, setOpenSection] = useState('how')
-  const [isZoomOpen, setIsZoomOpen] = useState(false)
-  const [addedModalOpen, setAddedModalOpen] = useState(false)
-  const [lastAddedQty, setLastAddedQty] = useState(1)
-  const navigate = useNavigate()
-  const isSoldOut = Number(product?.stock ?? 0) <= 0
+  const { slug } = useParams();
+  const [product, setProduct] = useState(null);
+  const [recommendations, setRecommendations] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [rating, setRating] = useState(5);
+  const [reviewText, setReviewText] = useState("");
+  const [checkedAuth, setCheckedAuth] = useState(false);
+  const [signedIn, setSignedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [qty, setQty] = useState(1);
+  const [openSection, setOpenSection] = useState("how");
+  const [isZoomOpen, setIsZoomOpen] = useState(false);
+  const [addedModalOpen, setAddedModalOpen] = useState(false);
+  const [lastAddedQty, setLastAddedQty] = useState(1);
+  const navigate = useNavigate();
+  const hasStockValue = product?.stock !== null && product?.stock !== undefined;
+  const stockValue = hasStockValue
+    ? Math.max(0, Number(product?.stock || 0))
+    : null;
+  const isSoldOut = hasStockValue && stockValue <= 0;
 
   useEffect(() => {
     const load = async () => {
-      const { data: sessionData } = await supabase.auth.getSession()
+      const { data: sessionData } = await supabase.auth.getSession();
       if (!sessionData?.session?.user) {
-        setSignedIn(false)
-        setCheckedAuth(true)
-        return
+        setSignedIn(false);
+        setIsAdmin(false);
+        setCheckedAuth(true);
+        return;
       }
-      setSignedIn(true)
+      setSignedIn(true);
+      const role = sessionData.session.user.user_metadata?.role ?? "customer";
+      setIsAdmin(role === "admin");
       const { data } = await supabase
-        .from('products')
-        .select('id,name,category,description,price,image_url,stock')
-        .eq('slug', slug)
-        .maybeSingle()
-      setProduct(data ?? null)
+        .from("products")
+        .select("id,name,category,description,price,image_url,stock")
+        .eq("slug", slug)
+        .maybeSingle();
+      setProduct(data ?? null);
       if (data?.category) {
         const { data: recs } = await supabase
-          .from('products')
-          .select('id,name,slug,price,image_url,stock')
-          .eq('category', data.category)
-          .neq('id', data.id)
-          .limit(3)
-        setRecommendations(recs ?? [])
+          .from("products")
+          .select("id,name,slug,price,image_url,stock")
+          .eq("category", data.category)
+          .neq("id", data.id)
+          .limit(3);
+        setRecommendations(recs ?? []);
       }
-      setCheckedAuth(true)
-    }
+      setCheckedAuth(true);
+    };
     if (slug) {
-      load()
+      load();
     }
-  }, [slug])
+  }, [slug]);
 
   useEffect(() => {
-    if (!product?.id) return
-    const key = `veloure_reviews_${product.id}`
-    const raw = window.localStorage.getItem(key)
+    if (!product?.id) return;
+    const key = `veloure_reviews_${product.id}`;
+    const raw = window.localStorage.getItem(key);
     if (!raw) {
-      setReviews([])
-      return
+      setReviews([]);
+      return;
     }
     try {
-      setReviews(JSON.parse(raw))
+      setReviews(JSON.parse(raw));
     } catch {
-      setReviews([])
+      setReviews([]);
     }
-  }, [product?.id])
+  }, [product?.id]);
 
   useEffect(() => {
     const onEsc = (event) => {
-      if (event.key === 'Escape') setIsZoomOpen(false)
-    }
-    window.addEventListener('keydown', onEsc)
-    return () => window.removeEventListener('keydown', onEsc)
-  }, [])
+      if (event.key === "Escape") setIsZoomOpen(false);
+    };
+    window.addEventListener("keydown", onEsc);
+    return () => window.removeEventListener("keydown", onEsc);
+  }, []);
 
   useEffect(() => {
-    const stock = Math.max(0, Number(product?.stock || 0))
-    if (stock === 0) {
-      setQty(1)
-      return
+    if (!hasStockValue) return;
+    if (stockValue === 0) {
+      setQty(1);
+      return;
     }
-    if (qty > stock) {
-      setQty(stock)
+    if (qty > stockValue) {
+      setQty(stockValue);
     }
-  }, [product?.stock, qty])
+  }, [hasStockValue, stockValue, qty]);
 
   const sections = useMemo(
     () => [
       {
-        id: 'how',
-        title: 'How to use',
-        body: 'Apply to clean lips and blend outward for a soft-focus finish. Layer for stronger payoff.',
+        id: "how",
+        title: "How to use",
+        body: "Apply to clean lips and blend outward for a soft-focus finish. Layer for stronger payoff.",
       },
       {
-        id: 'what',
-        title: 'What it does',
-        body: 'Provides buildable color with a lightweight feel and a smooth matte blur.',
+        id: "what",
+        title: "What it does",
+        body: "Provides buildable color with a lightweight feel and a smooth matte blur.",
       },
       {
-        id: 'special',
-        title: 'What makes it special',
-        body: 'Comfort-first texture, long-wear color, and a finish designed for everyday wear.',
+        id: "special",
+        title: "What makes it special",
+        body: "Comfort-first texture, long-wear color, and a finish designed for everyday wear.",
       },
       {
-        id: 'ingredients',
-        title: 'Ingredients',
-        body: 'See product packaging for the complete ingredient list and allergen guidance.',
+        id: "ingredients",
+        title: "Ingredients",
+        body: "See product packaging for the complete ingredient list and allergen guidance.",
       },
     ],
-    []
-  )
+    [],
+  );
 
   const handleAddCurrentProduct = async (goToCart = false) => {
-    if (!product || isSoldOut) return
-    const result = await addToCart(product, qty, { source: 'product-detail' })
+    if (!product || isSoldOut) return;
+    const result = await addToCart(product, qty, { source: "product-detail" });
     if (!result.error) {
       setProduct((prev) =>
-        prev ? { ...prev, stock: result.remainingStock } : prev
-      )
+        prev ? { ...prev, stock: result.remainingStock } : prev,
+      );
     }
-    if (result.addedQty <= 0) return
-    setLastAddedQty(result.addedQty)
-    setQty(1)
+    if (result.addedQty <= 0) return;
+    setLastAddedQty(result.addedQty);
+    setQty(1);
 
     if (goToCart) {
-      navigate('/cart')
-      return
+      navigate("/cart");
+      return;
     }
-    setAddedModalOpen(true)
-  }
+    setAddedModalOpen(true);
+  };
 
   const handleAddRecommendation = async (item) => {
-    const result = await addToCart(item, 1)
+    const result = await addToCart(item, 1);
     if (!result.error) {
       setRecommendations((prev) =>
         prev.map((entry) =>
           entry.id === item.id
             ? { ...entry, stock: result.remainingStock }
-            : entry
-        )
-      )
+            : entry,
+        ),
+      );
     }
-    if (result.addedQty <= 0) return
-  }
+    if (result.addedQty <= 0) return;
+  };
 
   if (!checkedAuth) {
-    return null
+    return null;
   }
 
   if (!signedIn) {
     return (
       <section className="space-y-4">
-        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Sign in required</p>
-        <h1 className="text-4xl font-black uppercase">Please sign in to view product details</h1>
-        <p className="text-sm text-[var(--ink)]/70">
-          Create an account or sign in to access full product information and purchase options.
+        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
+          Sign in required
         </p>
-        <Link to="/login" className="text-sm font-black uppercase tracking-[0.14em] text-[var(--ink)]">
+        <h1 className="text-4xl font-black uppercase">
+          Please sign in to view product details
+        </h1>
+        <p className="text-sm text-[var(--ink)]/70">
+          Create an account or sign in to access full product information and
+          purchase options.
+        </p>
+        <Link
+          to="/login"
+          className="text-sm font-black uppercase tracking-[0.14em] text-[var(--ink)]"
+        >
           Go to sign in
         </Link>
       </section>
-    )
+    );
   }
 
   if (!product) {
     return (
       <section className="space-y-4">
-        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Product</p>
+        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
+          Product
+        </p>
         <h1 className="text-4xl font-black uppercase">Product not found</h1>
-        <Link to="/shop" className="text-sm font-black uppercase tracking-[0.14em] text-[var(--ink)]/70">
+        <Link
+          to="/shop"
+          className="text-sm font-black uppercase tracking-[0.14em] text-[var(--ink)]/70"
+        >
           Back to shop
         </Link>
       </section>
-    )
+    );
   }
 
   return (
@@ -204,69 +225,107 @@ function Product() {
         </div>
 
         <div className="space-y-5 border border-[var(--ink)] bg-white p-6 md:p-7">
-          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Product detail</p>
-          <h1 className="text-4xl font-black uppercase leading-[0.95]">{product.name}</h1>
-          <p className="text-sm leading-6 text-[var(--ink)]/75">{product.description}</p>
+          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
+            Product detail
+          </p>
+          <h1 className="text-4xl font-black uppercase leading-[0.95]">
+            {product.name}
+          </h1>
+          <p className="text-sm leading-6 text-[var(--ink)]/75">
+            {product.description}
+          </p>
 
           <div className="grid grid-cols-2 gap-4 border-y border-[var(--ink)] py-4 text-sm">
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--ink)]/60">Price</p>
-              <p className="mt-1 text-2xl font-black">PHP {Number(product.price || 0).toFixed(2)}</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--ink)]/60">
+                Price
+              </p>
+              <p className="mt-1 text-2xl font-black">
+                PHP {Number(product.price || 0).toFixed(2)}
+              </p>
             </div>
             <div>
-              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--ink)]/60">Stock</p>
-              <p className="mt-1 text-2xl font-black">{isSoldOut ? 'Sold out' : product.stock ?? 0}</p>
+              <p className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--ink)]/60">
+                Stock
+              </p>
+              <p className="mt-1 text-2xl font-black">
+                {isSoldOut
+                  ? "Sold out"
+                  : hasStockValue
+                    ? stockValue
+                    : "Available"}
+              </p>
             </div>
           </div>
 
-          <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--ink)]/70">Quantity</p>
-            <div className="mt-2 inline-flex items-center border border-[var(--ink)]">
-              <button
-                type="button"
-                onClick={() => setQty((prev) => Math.max(1, prev - 1))}
-                className="h-10 w-11 text-lg disabled:opacity-40"
+          {!isAdmin && (
+            <>
+              <div>
+                <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--ink)]/70">
+                  Quantity
+                </p>
+                <div className="mt-2 inline-flex items-center border border-[var(--ink)]">
+                  <button
+                    type="button"
+                    onClick={() => setQty((prev) => Math.max(1, prev - 1))}
+                    className="h-10 w-11 text-lg disabled:opacity-40"
+                    disabled={isSoldOut}
+                  >
+                    -
+                  </button>
+                  <span className="flex h-10 w-14 items-center justify-center border-x border-[var(--ink)] text-lg font-black">
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setQty((prev) =>
+                        hasStockValue
+                          ? Math.min(stockValue, prev + 1)
+                          : prev + 1,
+                      )
+                    }
+                    className="h-10 w-11 text-lg disabled:opacity-40"
+                    disabled={isSoldOut || (hasStockValue && qty >= stockValue)}
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              <MotionButton
+                className="w-full border border-[var(--ink)] bg-white px-6 py-3 text-xl font-black uppercase tracking-[0.06em] disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9]"
+                onClick={() => handleAddCurrentProduct(false)}
                 disabled={isSoldOut}
               >
-                -
-              </button>
-              <span className="flex h-10 w-14 items-center justify-center border-x border-[var(--ink)] text-lg font-black">
-                {qty}
-              </span>
-              <button
-                type="button"
-                onClick={() => setQty((prev) => Math.min(Number(product.stock || 0), prev + 1))}
-                className="h-10 w-11 text-lg disabled:opacity-40"
-                disabled={isSoldOut || qty >= Number(product.stock || 0)}
-              >
-                +
-              </button>
-            </div>
-          </div>
+                {isSoldOut ? "Sold out" : "Add to bag"}
+              </MotionButton>
 
-          <MotionButton
-            className="w-full border border-[var(--ink)] bg-white px-6 py-3 text-xl font-black uppercase tracking-[0.06em] disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9]"
-            onClick={() => handleAddCurrentProduct(false)}
-            disabled={isSoldOut}
-          >
-            {isSoldOut ? 'Sold out' : 'Add to bag'}
-          </MotionButton>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <MotionButton
-              className="border border-[var(--ink)] bg-[var(--ink)] px-6 py-3 text-sm font-black uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9]"
-              onClick={() => handleAddCurrentProduct(true)}
-              disabled={isSoldOut}
-            >
-              {isSoldOut ? 'Sold out' : 'Buy now'}
-            </MotionButton>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <MotionButton
+                  className="border border-[var(--ink)] bg-[var(--ink)] px-6 py-3 text-sm font-black uppercase tracking-[0.12em] text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9]"
+                  onClick={() => handleAddCurrentProduct(true)}
+                  disabled={isSoldOut}
+                >
+                  {isSoldOut ? "Sold out" : "Buy now"}
+                </MotionButton>
+                <Link
+                  to="/products"
+                  className="flex items-center justify-center border border-[var(--ink)] px-6 py-3 text-sm font-black uppercase tracking-[0.12em]"
+                >
+                  Back to products
+                </Link>
+              </div>
+            </>
+          )}
+          {isAdmin && (
             <Link
               to="/products"
               className="flex items-center justify-center border border-[var(--ink)] px-6 py-3 text-sm font-black uppercase tracking-[0.12em]"
             >
               Back to products
             </Link>
-          </div>
+          )}
 
           <div className="grid grid-cols-1 gap-2 text-sm md:grid-cols-3">
             <p>Preservative-safe</p>
@@ -276,17 +335,26 @@ function Product() {
 
           <div className="border-t border-[var(--ink)]">
             {sections.map((section) => (
-              <div key={section.id} className="border-b border-[var(--ink)] py-3">
+              <div
+                key={section.id}
+                className="border-b border-[var(--ink)] py-3"
+              >
                 <button
                   type="button"
                   className="flex w-full items-center justify-between text-left text-[11px] font-black uppercase tracking-[0.22em]"
-                  onClick={() => setOpenSection((prev) => (prev === section.id ? '' : section.id))}
+                  onClick={() =>
+                    setOpenSection((prev) =>
+                      prev === section.id ? "" : section.id,
+                    )
+                  }
                 >
                   <span>{section.title}</span>
-                  <span>{openSection === section.id ? '-' : '+'}</span>
+                  <span>{openSection === section.id ? "-" : "+"}</span>
                 </button>
                 {openSection === section.id && (
-                  <p className="pt-3 text-sm leading-6 text-[var(--ink)]/75">{section.body}</p>
+                  <p className="pt-3 text-sm leading-6 text-[var(--ink)]/75">
+                    {section.body}
+                  </p>
                 )}
               </div>
             ))}
@@ -355,7 +423,7 @@ function Product() {
                     d="m5 13 4 4L19 7"
                     initial={{ pathLength: 0 }}
                     animate={{ pathLength: 1 }}
-                    transition={{ duration: 0.35, ease: 'easeOut' }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
                   />
                 </svg>
               </motion.div>
@@ -377,8 +445,8 @@ function Product() {
                   type="button"
                   className="border border-[var(--ink)] bg-[var(--ink)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.14em] text-white"
                   onClick={() => {
-                    setAddedModalOpen(false)
-                    navigate('/cart')
+                    setAddedModalOpen(false);
+                    navigate("/cart");
                   }}
                 >
                   View cart
@@ -392,33 +460,62 @@ function Product() {
       <section className="space-y-5">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Recommendations</p>
-            <h2 className="mt-2 text-3xl font-black uppercase">You may also love</h2>
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
+              Recommendations
+            </p>
+            <h2 className="mt-2 text-3xl font-black uppercase">
+              You may also love
+            </h2>
           </div>
-          <Link to="/products" className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--ink)]/70">
+          <Link
+            to="/products"
+            className="text-[11px] font-black uppercase tracking-[0.22em] text-[var(--ink)]/70"
+          >
             View all
           </Link>
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
           {recommendations.map((item) => {
-            const isRecommendationSoldOut = Number(item.stock ?? 0) <= 0
+            const hasRecommendationStock =
+              item.stock !== null && item.stock !== undefined;
+            const recommendationStockValue = hasRecommendationStock
+              ? Math.max(0, Number(item.stock || 0))
+              : null;
+            const isRecommendationSoldOut =
+              hasRecommendationStock && recommendationStockValue <= 0;
             return (
-              <article key={item.id} className="flex h-full flex-col border border-[var(--ink)] bg-white p-4">
+              <article
+                key={item.id}
+                className="flex h-full flex-col border border-[var(--ink)] bg-white p-4"
+              >
                 <Link to={`/product/${item.slug}`} className="block">
                   <div className="relative">
-                    <img className="aspect-square w-full object-cover" src={item.image_url} alt={item.name} />
+                    <img
+                      className="aspect-square w-full object-cover"
+                      src={item.image_url}
+                      alt={item.name}
+                    />
                     {isRecommendationSoldOut && (
                       <span className="absolute left-3 top-3 border border-white bg-black/85 px-2 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-white">
                         Sold out
                       </span>
                     )}
                   </div>
-                  <p className="mt-3 min-h-[3.5rem] text-lg font-black uppercase leading-tight">{item.name}</p>
+                  <p className="mt-3 min-h-[3.5rem] text-lg font-black uppercase leading-tight">
+                    {item.name}
+                  </p>
                 </Link>
-                <p className="mt-1 text-sm">PHP {Number(item.price || 0).toFixed(2)}</p>
+                <p className="mt-1 text-sm">
+                  PHP {Number(item.price || 0).toFixed(2)}
+                </p>
                 <p className="mt-1 text-[11px] font-black uppercase tracking-[0.16em] text-[var(--ink)]/60">
-                  Stock: {isRecommendationSoldOut ? 'Sold out' : item.stock ?? 0}
+                  Stock:{" "}
+                  {isRecommendationSoldOut
+                    ? "Sold out"
+                    : hasRecommendationStock
+                      ? recommendationStockValue
+                      : "Available"}
                 </p>
                 <Link
                   to={`/product/${item.slug}`}
@@ -426,15 +523,17 @@ function Product() {
                 >
                   See more details
                 </Link>
-                <MotionButton
-                  className="mt-auto w-full border border-[var(--ink)] bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] transition hover:bg-[var(--ink)] hover:text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9] disabled:hover:text-[#666]"
-                  onClick={() => handleAddRecommendation(item)}
-                  disabled={isRecommendationSoldOut}
-                >
-                  {isRecommendationSoldOut ? 'Sold out' : 'Add to bag'}
-                </MotionButton>
+                {!isAdmin && (
+                  <MotionButton
+                    className="mt-auto w-full border border-[var(--ink)] bg-white px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] transition hover:bg-[var(--ink)] hover:text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9] disabled:hover:text-[#666]"
+                    onClick={() => handleAddRecommendation(item)}
+                    disabled={isRecommendationSoldOut}
+                  >
+                    {isRecommendationSoldOut ? "Sold out" : "Add to bag"}
+                  </MotionButton>
+                )}
               </article>
-            )
+            );
           })}
           {recommendations.length === 0 && (
             <div className="border border-[var(--ink)] bg-white p-6 text-sm text-[var(--ink)]/70">
@@ -446,8 +545,12 @@ function Product() {
 
       <section className="space-y-5">
         <div>
-          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Reviews</p>
-          <h2 className="mt-2 text-3xl font-black uppercase">Customer reviews</h2>
+          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
+            Reviews
+          </p>
+          <h2 className="mt-2 text-3xl font-black uppercase">
+            Customer reviews
+          </h2>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -458,7 +561,10 @@ function Product() {
               </div>
             )}
             {reviews.map((item) => (
-              <div key={item.id} className="border border-[var(--ink)] bg-white p-6">
+              <div
+                key={item.id}
+                className="border border-[var(--ink)] bg-white p-6"
+              >
                 <p className="text-lg font-black uppercase">{item.name}</p>
                 <div className="mt-2 flex gap-1">
                   {Array.from({ length: item.rating }).map((_, index) => (
@@ -473,31 +579,33 @@ function Product() {
           <form
             className="border border-[var(--ink)] bg-white p-6"
             onSubmit={(event) => {
-              event.preventDefault()
-              if (!reviewText.trim()) return
+              event.preventDefault();
+              if (!reviewText.trim()) return;
               const entry = {
                 id: crypto.randomUUID(),
-                name: 'Veloure Client',
+                name: "Veloure Client",
                 rating,
                 text: reviewText.trim(),
                 date: new Date().toISOString(),
-              }
-              const next = [entry, ...reviews]
-              setReviews(next)
-              const key = `veloure_reviews_${product.id}`
-              window.localStorage.setItem(key, JSON.stringify(next))
-              setReviewText('')
-              setRating(5)
+              };
+              const next = [entry, ...reviews];
+              setReviews(next);
+              const key = `veloure_reviews_${product.id}`;
+              window.localStorage.setItem(key, JSON.stringify(next));
+              setReviewText("");
+              setRating(5);
             }}
           >
-            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Leave a review</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
+              Leave a review
+            </p>
             <div className="mt-4 flex gap-2">
               {Array.from({ length: 5 }).map((_, index) => (
                 <button
                   key={index}
                   type="button"
                   onClick={() => setRating(index + 1)}
-                  className={`border border-[var(--ink)] px-3 py-1 text-sm ${rating === index + 1 ? 'bg-[var(--sand)]/30' : ''}`}
+                  className={`border border-[var(--ink)] px-3 py-1 text-sm ${rating === index + 1 ? "bg-[var(--sand)]/30" : ""}`}
                 >
                   *
                 </button>
@@ -517,7 +625,7 @@ function Product() {
         </div>
       </section>
     </div>
-  )
+  );
 }
 
-export default Product
+export default Product;

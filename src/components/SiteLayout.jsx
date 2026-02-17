@@ -1,4 +1,10 @@
-import { Outlet, NavLink, Link, useLocation, useNavigate } from "react-router-dom";
+import {
+  Outlet,
+  NavLink,
+  Link,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { supabase } from "../lib/supabase.js";
@@ -12,6 +18,7 @@ const linkClass = ({ isActive }) =>
 
 function SiteLayout() {
   const [signedIn, setSignedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [cartCount, setCartCount] = useState(0);
   const [cartItems, setCartItems] = useState([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
@@ -28,44 +35,72 @@ function SiteLayout() {
   const navigate = useNavigate();
   const searchInputRef = useRef(null);
   const addedToCartTimerRef = useRef(null);
+  const isAdminRef = useRef(false);
   const isHomePage = location.pathname === "/";
+
+  useEffect(() => {
+    isAdminRef.current = isAdmin;
+  }, [isAdmin]);
 
   const updateCartCount = () => {
     const items = getCart();
     setCartItems(items);
-    const totalQty = items.reduce((sum, item) => sum + item.qty, 0);
+    const totalQty = items.reduce(
+      (sum, item) => sum + Number(item.qty || 0),
+      0,
+    );
     setCartCount(totalQty);
   };
 
   const handleDrawerQty = async (id, qty) => {
     const existing = cartItems.find((item) => item.id === id);
     if (!existing) return;
-    const maxAllowed = Math.max(1, Number(existing.qty || 1) + Number(existing.stock || 0));
-    const nextQty = Math.max(1, Math.min(maxAllowed, Number(qty || 1)));
+    const parsedQty = Number.parseInt(qty, 10);
+    if (!Number.isFinite(parsedQty)) return;
+    const hasTrackedStock =
+      existing?.stock !== null && existing?.stock !== undefined;
+    const maxAllowed = hasTrackedStock
+      ? Math.max(1, Number(existing.qty || 1) + Number(existing.stock || 0))
+      : Number.MAX_SAFE_INTEGER;
+    const nextQty = Math.max(1, Math.min(maxAllowed, parsedQty));
     const items = await updateQty(id, nextQty);
     setCartItems(items);
-    setCartCount(items.reduce((sum, item) => sum + item.qty, 0));
+    setCartCount(
+      items.reduce((sum, item) => sum + Number(item.qty || 0), 0),
+    );
+  };
+
+  const getMaxQty = (item) => {
+    const hasTrackedStock = item?.stock !== null && item?.stock !== undefined;
+    if (!hasTrackedStock) return undefined;
+    return Math.max(1, Number(item.qty || 1) + Number(item.stock || 0));
   };
 
   const handleDrawerRemove = async (id) => {
     const items = await removeFromCart(id);
     setCartItems(items);
-    setCartCount(items.reduce((sum, item) => sum + item.qty, 0));
+    setCartCount(
+      items.reduce((sum, item) => sum + Number(item.qty || 0), 0),
+    );
   };
 
   useEffect(() => {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
-      setSignedIn(!!data?.session?.user);
+      const user = data?.session?.user;
+      setSignedIn(!!user);
+      setIsAdmin((user?.user_metadata?.role ?? "customer") === "admin");
       updateCartCount();
     };
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSignedIn(!!session?.user);
+      const user = session?.user;
+      setSignedIn(!!user);
+      setIsAdmin((user?.user_metadata?.role ?? "customer") === "admin");
     });
     const onCartAdded = (event) => {
       const detail = event?.detail ?? {};
-      if (detail.source === "product-detail") return;
+      if (detail.source === "product-detail" || isAdminRef.current) return;
       setAddedToCartModal({
         open: true,
         name: detail.name ?? "Item",
@@ -139,11 +174,20 @@ function SiteLayout() {
     setIsCartOpen(false);
   }, [location.pathname]);
 
+  useEffect(() => {
+    if (isAdmin) {
+      setIsCartOpen(false);
+    }
+  }, [isAdmin]);
+
   return (
     <div className="flex min-h-screen flex-col bg-[var(--cream)] text-[var(--ink)]">
       <header className="sticky top-0 z-50 border-b border-[var(--ink)]/10 bg-white/40 px-6 py-6 backdrop-blur-md transition-all duration-300 hover:bg-white/60 md:px-16">
         <nav className="flex flex-wrap items-center justify-between gap-6">
-          <Link to="/" className="font-display text-2xl font-bold tracking-wide">
+          <Link
+            to="/"
+            className="font-display text-2xl font-bold tracking-wide"
+          >
             Veloure Beauty
           </Link>
           <div className="flex flex-wrap items-center gap-8 text-m font-bold">
@@ -206,29 +250,31 @@ function SiteLayout() {
                 </svg>
               </Link>
             )}
-            <button
-              type="button"
-              onClick={() => setIsCartOpen(true)}
-              className="relative rounded-full border border-[var(--ink)]/10 p-2 transition hover:text-[var(--gold)]"
-              aria-label="Cart"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
+            {!isAdmin && (
+              <button
+                type="button"
+                onClick={() => setIsCartOpen(true)}
+                className="relative rounded-full border border-[var(--ink)]/10 p-2 transition hover:text-[var(--gold)]"
+                aria-label="Cart"
               >
-                <path d="M6 6h15l-2 9H8L6 6Z" />
-                <path d="M6 6 5 3H2" />
-              </svg>
-              {cartCount > 0 && (
-                <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--gold)] text-[10px] font-semibold text-white">
-                  {cartCount}
-                </span>
-              )}
-            </button>
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                >
+                  <path d="M6 6h15l-2 9H8L6 6Z" />
+                  <path d="M6 6 5 3H2" />
+                </svg>
+                {cartCount > 0 && (
+                  <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--gold)] text-[10px] font-semibold text-white">
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            )}
           </div>
         </nav>
       </header>
@@ -267,14 +313,20 @@ function SiteLayout() {
             </div>
           </div>
 
-          {(searchLoading || searchResults.length > 0 || searchQuery.trim()) && (
+          {(searchLoading ||
+            searchResults.length > 0 ||
+            searchQuery.trim()) && (
             <div className="mt-4 border-t border-[var(--ink)]/35 pt-3">
               {searchLoading && (
                 <p className="text-sm text-[var(--ink)]/65">Searching...</p>
               )}
-              {!searchLoading && searchResults.length === 0 && searchQuery.trim() && (
-                <p className="text-sm text-[var(--ink)]/65">No products found.</p>
-              )}
+              {!searchLoading &&
+                searchResults.length === 0 &&
+                searchQuery.trim() && (
+                  <p className="text-sm text-[var(--ink)]/65">
+                    No products found.
+                  </p>
+                )}
               {!searchLoading && searchResults.length > 0 && (
                 <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
                   {searchResults.map((item) => (
@@ -293,7 +345,9 @@ function SiteLayout() {
                         <p className="text-sm font-black uppercase leading-tight">
                           {item.name}
                         </p>
-                        <p className="text-xs">PHP {Number(item.price || 0).toFixed(2)}</p>
+                        <p className="text-xs">
+                          PHP {Number(item.price || 0).toFixed(2)}
+                        </p>
                       </div>
                     </button>
                   ))}
@@ -304,7 +358,7 @@ function SiteLayout() {
         </div>
       )}
 
-      {isCartOpen && (
+      {!isAdmin && isCartOpen && (
         <div className="fixed inset-0 z-[70]">
           <button
             type="button"
@@ -335,7 +389,10 @@ function SiteLayout() {
               ) : (
                 <div className="space-y-4">
                   {cartItems.map((item) => (
-                    <div key={item.id} className="border border-[var(--ink)] bg-white p-3">
+                    <div
+                      key={item.id}
+                      className="border border-[var(--ink)] bg-white p-3"
+                    >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-center gap-3">
                           <img
@@ -344,14 +401,18 @@ function SiteLayout() {
                             className="h-16 w-16 border border-[var(--ink)] object-cover"
                           />
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-black uppercase">{item.name}</p>
+                            <p className="truncate text-sm font-black uppercase">
+                              {item.name}
+                            </p>
                             <p className="text-xs text-[var(--ink)]/70">
                               PHP {Number(item.price || 0).toFixed(2)}
                             </p>
                             <div className="mt-2 inline-flex items-center border border-[var(--ink)]">
                               <button
                                 type="button"
-                                onClick={() => handleDrawerQty(item.id, item.qty - 1)}
+                                onClick={() =>
+                                  handleDrawerQty(item.id, item.qty - 1)
+                                }
                                 className="h-7 w-7 text-sm"
                                 aria-label={`Decrease ${item.name} quantity`}
                               >
@@ -360,7 +421,7 @@ function SiteLayout() {
                               <input
                                 type="number"
                                 min="1"
-                                max={Math.max(1, Number(item.qty || 1) + Number(item.stock || 0))}
+                                max={getMaxQty(item)}
                                 value={item.qty}
                                 onChange={(event) =>
                                   handleDrawerQty(item.id, event.target.value)
@@ -370,7 +431,9 @@ function SiteLayout() {
                               />
                               <button
                                 type="button"
-                                onClick={() => handleDrawerQty(item.id, item.qty + 1)}
+                                onClick={() =>
+                                  handleDrawerQty(item.id, item.qty + 1)
+                                }
                                 className="h-7 w-7 text-sm"
                                 aria-label={`Increase ${item.name} quantity`}
                               >
@@ -485,7 +548,11 @@ function SiteLayout() {
         )}
       </AnimatePresence>
 
-      <main className={isHomePage ? "flex-1 p-0" : "flex-1 px-6 pb-20 pt-10 md:px-16"}>
+      <main
+        className={
+          isHomePage ? "flex-1 p-0" : "flex-1 px-6 pb-20 pt-10 md:px-16"
+        }
+      >
         <motion.div
           key={location.pathname}
           initial={{ opacity: 0, y: 12 }}

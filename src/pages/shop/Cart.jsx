@@ -1,33 +1,99 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { getCart, removeFromCart, updateQty } from '../../lib/cart.js'
-import MotionButton from '../../components/MotionButton.jsx'
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { getCart, removeFromCart, updateQty } from "../../lib/cart.js";
+import { supabase } from "../../lib/supabase.js";
+import MotionButton from "../../components/MotionButton.jsx";
 
 function Cart() {
-  const [items, setItems] = useState([])
-  const navigate = useNavigate()
+  const [items, setItems] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkedRole, setCheckedRole] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    setItems(getCart())
-  }, [])
+    setItems(getCart());
+  }, []);
+
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      const role = data?.session?.user?.user_metadata?.role ?? "customer";
+      setIsAdmin(role === "admin");
+      setCheckedRole(true);
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const role = session?.user?.user_metadata?.role ?? "customer";
+      setIsAdmin(role === "admin");
+      setCheckedRole(true);
+    });
+
+    init();
+    return () => {
+      sub?.subscription?.unsubscribe();
+    };
+  }, []);
 
   const handleRemove = async (id) => {
-    setItems(await removeFromCart(id))
-  }
+    setItems(await removeFromCart(id));
+  };
 
   const handleQty = async (id, qty) => {
-    const existing = items.find((item) => item.id === id)
-    if (!existing) return
-    const maxAllowed = Math.max(1, Number(existing.qty || 1) + Number(existing.stock || 0))
-    const nextQty = Math.max(1, Math.min(maxAllowed, Number(qty || 1)))
-    setItems(await updateQty(id, nextQty))
-  }
+    const existing = items.find((item) => item.id === id);
+    if (!existing) return;
+    const parsedQty = Number.parseInt(qty, 10);
+    if (!Number.isFinite(parsedQty)) return;
+    const hasTrackedStock =
+      existing?.stock !== null && existing?.stock !== undefined;
+    const maxAllowed = hasTrackedStock
+      ? Math.max(1, Number(existing.qty || 1) + Number(existing.stock || 0))
+      : Number.MAX_SAFE_INTEGER;
+    const nextQty = Math.max(1, Math.min(maxAllowed, parsedQty));
+    setItems(await updateQty(id, nextQty));
+  };
 
-  const subtotal = items.reduce((sum, item) => sum + Number(item.price || 0) * item.qty, 0)
+  const subtotal = items.reduce(
+    (sum, item) => sum + Number(item.price || 0) * item.qty,
+    0,
+  );
+  const getMaxQty = (item) => {
+    const hasTrackedStock = item?.stock !== null && item?.stock !== undefined;
+    if (!hasTrackedStock) return undefined;
+    return Math.max(1, Number(item.qty || 1) + Number(item.stock || 0));
+  };
 
   const handleCheckout = () => {
-    if (items.length === 0) return
-    navigate('/checkout-list')
+    if (items.length === 0 || isAdmin) return;
+    navigate("/checkout-list");
+  };
+
+  if (!checkedRole) {
+    return null;
+  }
+
+  if (isAdmin) {
+    return (
+      <section className="space-y-6">
+        <div className="border border-[var(--ink)] bg-white px-6 py-8 md:px-10">
+          <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
+            Cart
+          </p>
+          <h1 className="mt-3 text-4xl font-black uppercase leading-none md:text-5xl">
+            Cart is disabled for admin
+          </h1>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink)]/75">
+            Admin accounts can browse products and manage inventory, but
+            checkout actions are hidden.
+          </p>
+        </div>
+        <Link
+          to="/products"
+          className="inline-block border border-[var(--ink)] px-6 py-3 text-sm font-black uppercase tracking-[0.12em]"
+        >
+          Back to products
+        </Link>
+      </section>
+    );
   }
 
   return (
@@ -45,7 +111,8 @@ function Cart() {
         <div className="space-y-4">
           {items.length === 0 ? (
             <div className="border border-[var(--ink)] bg-white p-6 text-sm text-[var(--ink)]/70">
-              Your bag is empty. Add products from the shop to begin your ritual.
+              Your bag is empty. Add products from the shop to begin your
+              ritual.
             </div>
           ) : (
             items.map((item) => (
@@ -73,7 +140,7 @@ function Cart() {
                     className="w-16 border border-[var(--ink)] px-3 py-2 text-sm"
                     type="number"
                     min="1"
-                    max={Math.max(1, Number(item.qty || 1) + Number(item.stock || 0))}
+                    max={getMaxQty(item)}
                     value={item.qty}
                     onChange={(event) => handleQty(item.id, event.target.value)}
                   />
@@ -122,7 +189,7 @@ function Cart() {
         </aside>
       </div>
     </section>
-  )
+  );
 }
 
-export default Cart
+export default Cart;

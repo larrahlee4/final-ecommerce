@@ -108,7 +108,7 @@ function Checkout() {
       state: {
         orderId: orderRow.id,
         total,
-        itemCount: items.reduce((sum, item) => sum + item.qty, 0),
+        itemCount: items.reduce((sum, item) => sum + Number(item.qty || 0), 0),
       },
     })
   }

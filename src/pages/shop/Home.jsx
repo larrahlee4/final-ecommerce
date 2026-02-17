@@ -6,6 +6,7 @@ import { addToCart } from "../../lib/cart.js";
 
 function Home() {
   const [smallList, setSmallList] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [videoIndex, setVideoIndex] = useState(0);
   const [isVideoFading, setIsVideoFading] = useState(false);
   const [currentReviewIndex, setCurrentReviewIndex] = useState(0);
@@ -68,7 +69,9 @@ function Home() {
     const load = async () => {
       const { data } = await supabase
         .from("products")
-        .select("id,name,slug,category,description,price,image_url,is_featured,stock")
+        .select(
+          "id,name,slug,category,description,price,image_url,is_featured,stock",
+        )
         .order("created_at", { ascending: false });
       setSmallList(data ?? []);
     };
@@ -76,15 +79,100 @@ function Home() {
     load();
   }, []);
 
-  const skincareList = smallList.filter(
-    (item) =>
-      (item.category || "").toLowerCase() === "skincare" && item.is_featured,
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      const role = data?.session?.user?.user_metadata?.role ?? "customer";
+      setIsAdmin(role === "admin");
+    };
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
+      const role = session?.user?.user_metadata?.role ?? "customer";
+      setIsAdmin(role === "admin");
+    });
+
+    init();
+    return () => {
+      sub?.subscription?.unsubscribe();
+    };
+  }, []);
+
+  const isFeaturedProduct = (value) =>
+    value === true || value === 1 || value === "1" || value === "true";
+
+  const normalizeCategory = (value) =>
+    String(value ?? "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s_-]+/g, "");
+
+  const skincareKeywords = [
+    "serum",
+    "cleanser",
+    "toner",
+    "moisturizer",
+    "lotion",
+    "essence",
+    "sunscreen",
+    "mask",
+  ];
+
+  const cosmeticsKeywords = [
+    "cosmetic",
+    "makeup",
+    "eyeshadow",
+    "lipstick",
+    "lipliner",
+    "eyebrow",
+    "mascara",
+    "foundation",
+    "blush",
+    "concealer",
+    "powder",
+  ];
+
+  const detectBestsellerGroup = (item) => {
+    const normalizedName = normalizeCategory(item?.name);
+    const normalizedCategory = normalizeCategory(item?.category);
+    const normalizedDescription = normalizeCategory(item?.description);
+    const textBlob = `${normalizedName} ${normalizedCategory} ${normalizedDescription}`;
+
+    const isSkincare = skincareKeywords.some((keyword) =>
+      textBlob.includes(normalizeCategory(keyword)),
+    );
+    const isCosmetics = cosmeticsKeywords.some((keyword) =>
+      textBlob.includes(normalizeCategory(keyword)),
+    );
+
+    if (isSkincare && !isCosmetics) return "skincare";
+    if (isCosmetics && !isSkincare) return "cosmetics";
+    if (isSkincare) return "skincare";
+    if (isCosmetics) return "cosmetics";
+    return null;
+  };
+
+  const featuredProducts = smallList.filter((item) =>
+    isFeaturedProduct(item.is_featured),
   );
 
-  const cosmeticsList = smallList.filter(
-    (item) =>
-      (item.category || "").toLowerCase() === "cosmetics" && item.is_featured,
+  const skincareList = featuredProducts.filter(
+    (item) => detectBestsellerGroup(item) === "skincare",
   );
+
+  const cosmeticsList = featuredProducts.filter(
+    (item) => detectBestsellerGroup(item) === "cosmetics",
+  );
+
+  const assignedIds = new Set([
+    ...skincareList.map((item) => item.id),
+    ...cosmeticsList.map((item) => item.id),
+  ]);
+  const unassignedFeatured = featuredProducts.filter(
+    (item) => !assignedIds.has(item.id),
+  );
+  const fallbackMid = Math.ceil(unassignedFeatured.length / 2);
+  const skincareBestsellers = [...skincareList, ...unassignedFeatured.slice(0, fallbackMid)];
+  const cosmeticsBestsellers = [...cosmeticsList, ...unassignedFeatured.slice(fallbackMid)];
 
   const reviewPage = companyReviews.slice(
     currentReviewIndex,
@@ -123,7 +211,12 @@ function Home() {
       {items.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {items.slice(0, 8).map((item) => {
-            const isSoldOut = Number(item.stock ?? 0) <= 0;
+            const hasStockValue =
+              item.stock !== null && item.stock !== undefined;
+            const stockValue = hasStockValue
+              ? Math.max(0, Number(item.stock || 0))
+              : null;
+            const isSoldOut = hasStockValue && stockValue <= 0;
             return (
               <article
                 key={item.id}
@@ -161,18 +254,26 @@ function Home() {
                     </span>
                   </div>
                   <p className="min-h-[40px] text-sm leading-5 text-black/70">
-                    {item.description || "Clean formula with high-performance results."}
+                    {item.description ||
+                      "Clean formula with high-performance results."}
                   </p>
                   <p className="text-[11px] font-black uppercase tracking-[0.16em] text-black/60">
-                    Stock: {isSoldOut ? "Sold out" : item.stock ?? 0}
+                    Stock:{" "}
+                    {isSoldOut
+                      ? "Sold out"
+                      : hasStockValue
+                        ? stockValue
+                        : "Available"}
                   </p>
-                  <MotionButton
-                    className="w-full rounded-md border border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9] disabled:hover:text-[#666]"
-                    onClick={() => handleAddToCart(item, 1)}
-                    disabled={isSoldOut}
-                  >
-                    {isSoldOut ? "Sold out" : "Add to Cart"}
-                  </MotionButton>
+                  {!isAdmin && (
+                    <MotionButton
+                      className="w-full rounded-md border border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9] disabled:hover:text-[#666]"
+                      onClick={() => handleAddToCart(item, 1)}
+                      disabled={isSoldOut}
+                    >
+                      {isSoldOut ? "Sold out" : "Add to Cart"}
+                    </MotionButton>
+                  )}
                 </div>
               </article>
             );
@@ -237,8 +338,8 @@ function Home() {
         <h2 className="text-4xl font-black uppercase tracking-[0.03em] text-black md:text-5xl">
           Bestsellers
         </h2>
-        {renderBestsellerRow("Skincare Bestseller", skincareList)}
-        {renderBestsellerRow("Cosmetics Bestseller", cosmeticsList)}
+        {renderBestsellerRow("Skincare Bestseller", skincareBestsellers)}
+        {renderBestsellerRow("Cosmetics Bestseller", cosmeticsBestsellers)}
       </section>
 
       <section className="px-6 pt-4 md:px-14">

@@ -1,43 +1,93 @@
-import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase.js'
-import MotionButton from '../../components/MotionButton.jsx'
-import signinPhoto from '../../assets/picture2.webp'
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase.js";
+import MotionButton from "../../components/MotionButton.jsx";
+import signinPhoto from "../../assets/picture2.webp";
 
 function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const routeUserFromSession = async () => {
+      const { data } = await supabase.auth.getSession();
+      const session = data?.session;
+      if (session?.user) {
+        const role = session.user.user_metadata?.role ?? "customer";
+        navigate(role === "admin" ? "/admin" : "/dashboard", { replace: true });
+      }
+    };
+
+    routeUserFromSession();
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        if (session?.user) {
+          const role = session.user.user_metadata?.role ?? "customer";
+          navigate(role === "admin" ? "/admin" : "/dashboard", {
+            replace: true,
+          });
+        }
+      },
+    );
+
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
+  }, [navigate]);
 
   const handleSubmit = async (event) => {
-    event.preventDefault()
-    setError('')
-    setLoading(true)
+    event.preventDefault();
+    setError("");
+    setLoading(true);
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    const { data, error: signInError } = await supabase.auth.signInWithPassword(
+      {
+        email,
+        password,
+      },
+    );
 
     if (signInError) {
-      setLoading(false)
-      setError(signInError.message)
-      return
+      setLoading(false);
+      setError(signInError.message);
+      return;
     }
 
-    const role = data?.user?.user_metadata?.role ?? 'customer'
-    setLoading(false)
-    navigate(role === 'admin' ? '/admin' : '/dashboard')
-  }
+    const role = data?.user?.user_metadata?.role ?? "customer";
+    setLoading(false);
+    navigate(role === "admin" ? "/admin" : "/dashboard");
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError("");
+    setGoogleLoading(true);
+    const redirectTo = `${window.location.origin}/login`;
+    const { error: googleError } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo },
+    });
+
+    if (googleError) {
+      setGoogleLoading(false);
+      setError(googleError.message);
+    }
+  };
 
   return (
     <section className="border border-[var(--ink)] bg-[#efefef]">
       <div className="grid min-h-[70vh] lg:grid-cols-[1fr_1.08fr]">
         <div className="border-b border-[var(--ink)] px-6 py-8 md:px-10 md:py-10 lg:border-b-0 lg:border-r lg:px-14 lg:py-14">
-          <p className="text-[11px] font-black uppercase tracking-[0.32em] text-[var(--ink)]/65">Account</p>
-          <h1 className="mt-3 text-4xl font-black uppercase leading-none md:text-5xl">Sign in</h1>
+          <p className="text-[11px] font-black uppercase tracking-[0.32em] text-[var(--ink)]/65">
+            Account
+          </p>
+          <h1 className="mt-3 text-4xl font-black uppercase leading-none md:text-5xl">
+            Sign in
+          </h1>
           <p className="mt-4 max-w-xl text-sm leading-6 text-[var(--ink)]/75">
             Enter your account credentials to continue your beauty routine.
           </p>
@@ -77,8 +127,19 @@ function Login() {
               disabled={loading}
               className="mt-1 w-full border border-[var(--ink)] bg-black px-6 py-3 text-3xl font-black uppercase tracking-[0.08em] text-white disabled:opacity-60"
             >
-              {loading ? 'Signing in...' : 'Submit'}
+              {loading ? "Signing in..." : "Submit"}
             </MotionButton>
+
+            <button
+              type="button"
+              onClick={handleGoogleSignIn}
+              disabled={googleLoading}
+              className="w-full border border-[var(--ink)] bg-white px-6 py-3 text-sm font-black uppercase tracking-[0.16em] text-[var(--ink)] disabled:opacity-60"
+            >
+              {googleLoading
+                ? "Redirecting to Google..."
+                : "Continue with Google"}
+            </button>
 
             <Link
               to="/signup"
@@ -98,7 +159,7 @@ function Login() {
         </div>
       </div>
     </section>
-  )
+  );
 }
 
-export default Login
+export default Login;

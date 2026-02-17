@@ -1,84 +1,107 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { supabase } from '../../lib/supabase.js'
-import MotionButton from '../../components/MotionButton.jsx'
+import { useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase.js";
+import MotionButton from "../../components/MotionButton.jsx";
 
 function Profile() {
-  const [orders, setOrders] = useState([])
-  const [isAdmin, setIsAdmin] = useState(false)
-  const [showSignOut, setShowSignOut] = useState(false)
-  const [status, setStatus] = useState('')
-  const navigate = useNavigate()
+  const [orders, setOrders] = useState([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [showSignOut, setShowSignOut] = useState(false);
+  const [status, setStatus] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadUser = async () => {
-      const { data } = await supabase.auth.getUser()
-      const user = data?.user
+      const { data } = await supabase.auth.getUser();
+      const user = data?.user;
       if (!user) {
-        navigate('/login')
-        return
+        navigate("/login");
+        return;
       }
-      const role = user.user_metadata?.role ?? 'customer'
-      setIsAdmin(role === 'admin')
+      const role = user.user_metadata?.role ?? "customer";
+      const admin = role === "admin";
+      setIsAdmin(admin);
 
-      const { data: orderRows, error: ordersError } = await supabase
-        .from('orders')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
+      let ordersQuery = supabase
+        .from("orders")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (!admin) {
+        ordersQuery = ordersQuery.eq("user_id", user.id);
+      }
+
+      const { data: orderRows, error: ordersError } = await ordersQuery;
 
       if (ordersError) {
-        setStatus(ordersError.message)
-        setOrders([])
-        return
+        setStatus(ordersError.message);
+        setOrders([]);
+        return;
       }
 
-      const orderList = orderRows ?? []
+      const orderList = orderRows ?? [];
       if (orderList.length === 0) {
-        setOrders([])
-        return
+        setOrders([]);
+        return;
       }
 
-      const orderIds = orderList.map((order) => order.id)
-      const { data: itemRows } = await supabase.from('order_items').select('*').in('order_id', orderIds)
+      const orderIds = orderList.map((order) => order.id);
+      const { data: itemRows } = await supabase
+        .from("order_items")
+        .select("*")
+        .in("order_id", orderIds);
 
       const itemsByOrderId = (itemRows ?? []).reduce((acc, item) => {
-        const key = item.order_id
-        if (!acc[key]) acc[key] = []
+        const key = item.order_id;
+        if (!acc[key]) acc[key] = [];
         acc[key].push({
           id: item.id ?? `${key}-${item.product_id}`,
-          name: item.product_name ?? 'Product',
+          name: item.product_name ?? "Product",
           qty: Number(item.qty || 0),
           price: Number(item.price || 0),
-        })
-        return acc
-      }, {})
+        });
+        return acc;
+      }, {});
 
       const mappedOrders = orderList.map((order) => ({
         id: order.id,
+        userId: order.user_id ?? "",
         date: order.created_at ?? order.date ?? new Date().toISOString(),
         total: Number(order.total || 0),
-        items: itemsByOrderId[order.id] ?? (Array.isArray(order.items) ? order.items : []),
-      }))
+        subtotal: Number(order.subtotal || 0),
+        shippingFee: Number(order.shipping_fee || 0),
+        address: order.address ?? "",
+        notes: order.notes ?? "",
+        billing: order.billing ?? "standard",
+        items:
+          itemsByOrderId[order.id] ??
+          (Array.isArray(order.items) ? order.items : []),
+      }));
 
-      setOrders(mappedOrders)
-    }
+      setOrders(mappedOrders);
+    };
 
-    loadUser()
-  }, [navigate])
+    loadUser();
+  }, [navigate]);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut()
-    navigate('/login')
-  }
+    await supabase.auth.signOut();
+    navigate("/login");
+  };
 
   return (
     <section className="space-y-8">
       <div className="border border-[var(--ink)] bg-white px-6 py-8 md:px-10">
-        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Profile</p>
-        <h1 className="mt-3 text-4xl font-black uppercase leading-none md:text-5xl">Your purchase history</h1>
+        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
+          Profile
+        </p>
+        <h1 className="mt-3 text-4xl font-black uppercase leading-none md:text-5xl">
+          {isAdmin ? "Customer receipts" : "Your purchase history"}
+        </h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink)]/75">
-          Review your past orders and keep track of your ritual essentials.
+          {isAdmin
+            ? "Review every customer order receipt in one place."
+            : "Review your past orders and keep track of your ritual essentials."}
         </p>
 
         <div className="mt-6 flex flex-wrap gap-3">
@@ -108,21 +131,48 @@ function Profile() {
 
         {orders.length === 0 ? (
           <div className="border border-[var(--ink)] bg-white p-6 text-sm text-[var(--ink)]/70">
-            No purchases yet. Complete a checkout to see your history here.
+            {isAdmin
+              ? "No customer receipts found yet."
+              : "No purchases yet. Complete a checkout to see your history here."}
           </div>
         ) : (
           orders.map((order) => (
-            <article key={order.id} className="border border-[var(--ink)] bg-white p-6">
+            <article
+              key={order.id}
+              className="border border-[var(--ink)] bg-white p-6"
+            >
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--ink)] pb-3">
-                <p className="text-lg font-black uppercase">Order {order.id.slice(0, 8)}</p>
+                <p className="text-lg font-black uppercase">
+                  Order {order.id.slice(0, 8)}
+                </p>
                 <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65">
                   {new Date(order.date).toLocaleDateString()}
                 </p>
               </div>
 
+              {isAdmin && (
+                <div className="mt-3 grid gap-2 border-b border-[var(--ink)] pb-3 text-xs text-[var(--ink)]/75 md:grid-cols-2">
+                  <p className="font-black uppercase tracking-[0.16em]">
+                    Customer ID: {order.userId}
+                  </p>
+                  <p className="font-black uppercase tracking-[0.16em]">
+                    Billing: {order.billing}
+                  </p>
+                  <p className="md:col-span-2">
+                    Address: {order.address || "N/A"}
+                  </p>
+                  {order.notes && (
+                    <p className="md:col-span-2">Notes: {order.notes}</p>
+                  )}
+                </div>
+              )}
+
               <div className="mt-4 space-y-2 text-sm">
                 {order.items.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between gap-3">
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3"
+                  >
                     <span className="text-[var(--ink)]/80">{item.name}</span>
                     <span className="text-[var(--ink)]/80">
                       {item.qty} x PHP {Number(item.price || 0).toFixed(2)}
@@ -131,9 +181,25 @@ function Profile() {
                 ))}
               </div>
 
-              <div className="mt-4 flex justify-between border-t border-[var(--ink)] pt-3 text-sm font-black">
-                <span>Total</span>
-                <span>PHP {Number(order.total || 0).toFixed(2)}</span>
+              <div className="mt-4 space-y-2 border-t border-[var(--ink)] pt-3 text-sm">
+                {isAdmin && (
+                  <>
+                    <div className="flex justify-between">
+                      <span>Subtotal</span>
+                      <span>PHP {Number(order.subtotal || 0).toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Shipping</span>
+                      <span>
+                        PHP {Number(order.shippingFee || 0).toFixed(2)}
+                      </span>
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-between font-black">
+                  <span>Total</span>
+                  <span>PHP {Number(order.total || 0).toFixed(2)}</span>
+                </div>
               </div>
             </article>
           ))
@@ -143,7 +209,9 @@ function Profile() {
       {showSignOut && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/45 px-6">
           <div className="w-full max-w-md border border-[var(--ink)] bg-white p-6">
-            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Confirm</p>
+            <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
+              Confirm
+            </p>
             <h2 className="mt-2 text-2xl font-black uppercase">Sign out?</h2>
             <p className="mt-3 text-sm text-[var(--ink)]/75">
               You can sign back in anytime with your email and password.
@@ -166,7 +234,7 @@ function Profile() {
         </div>
       )}
     </section>
-  )
+  );
 }
 
-export default Profile
+export default Profile;

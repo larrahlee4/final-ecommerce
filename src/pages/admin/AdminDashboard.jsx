@@ -173,7 +173,7 @@ function AdminDashboard() {
   }
 
   return (
-    <section className="min-h-screen space-y-8 bg-[var(--cream)]">
+    <section className="min-h-screen space-y-8 overflow-x-hidden bg-[var(--cream)]">
       <div className="border border-[var(--ink)] bg-white px-6 py-8 md:px-10">
         <p className="text-[11px] font-black uppercase tracking-[0.32em] text-[var(--ink)]/65">
           Admin
@@ -192,10 +192,10 @@ function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+      <div className="grid gap-6 lg:grid-cols-3">
         <form
           onSubmit={handleCreate}
-          className="grid h-fit max-h-[calc(100vh-8rem)] gap-4 self-start overflow-y-auto border border-[var(--ink)] bg-white p-6 lg:sticky lg:top-24"
+          className="grid h-fit max-h-[calc(100vh-8rem)] min-w-0 gap-4 self-start overflow-y-auto border border-[var(--ink)] bg-white p-6 lg:col-span-2 lg:sticky lg:top-24"
         >
           <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
             Add product
@@ -272,7 +272,7 @@ function AdminDashboard() {
           </MotionButton>
         </form>
 
-        <div className="space-y-4 self-start lg:sticky lg:top-24">
+        <div className="min-w-0 space-y-4 self-start lg:col-span-1 lg:sticky lg:top-24">
           <div className="flex items-center justify-between border border-[var(--ink)] bg-white px-5 py-3">
             <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--ink)]/65">
               Inventory
@@ -286,9 +286,9 @@ function AdminDashboard() {
             {safeProducts.map((product) => (
               <article
                 key={product.id}
-                className="flex items-start justify-between gap-4 border border-[var(--ink)]/50 bg-[#e7e7e7] p-4"
+                className="flex flex-wrap items-start justify-between gap-4 border border-[var(--ink)]/50 bg-[#e7e7e7] p-4 sm:flex-nowrap"
               >
-                <div className="flex min-w-0 items-start gap-3">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
                   <img
                     src={
                       product.image_url ||
@@ -298,7 +298,7 @@ function AdminDashboard() {
                     className="h-16 w-16 border border-[var(--ink)] object-cover"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-2xl font-black uppercase leading-tight text-[var(--ink)]">
+                    <p className="truncate text-lg font-black uppercase leading-tight text-[var(--ink)] sm:text-2xl">
                       {product.name}
                     </p>
                     <p className="mt-1 text-sm text-[var(--ink)]/75">
@@ -315,7 +315,7 @@ function AdminDashboard() {
                   </div>
                 </div>
 
-                <div className="grid gap-2">
+                <div className="grid w-full grid-cols-2 gap-2 sm:w-auto sm:grid-cols-1">
                   <button
                     type="button"
                     onClick={() => handleDelete(product.id)}
