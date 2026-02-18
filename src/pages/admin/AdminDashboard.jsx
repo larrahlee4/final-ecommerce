@@ -27,6 +27,7 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
   const [editForm, setEditForm] = useState(emptyForm)
+  const [currentPage, setCurrentPage] = useState(1)
 
   const isAdmin = userRole === 'admin'
 
@@ -56,6 +57,19 @@ function AdminDashboard() {
   }, [])
 
   const safeProducts = useMemo(() => products ?? [], [products])
+  const productsPerPage = 6
+  const totalPages = Math.max(1, Math.ceil(safeProducts.length / productsPerPage))
+  const activePage = Math.min(currentPage, totalPages)
+  const pageStart = (activePage - 1) * productsPerPage
+  const paginatedProducts = safeProducts.slice(pageStart, pageStart + productsPerPage)
+  const maxVisiblePages = 5
+  const windowStart = Math.max(1, activePage - Math.floor(maxVisiblePages / 2))
+  const windowEnd = Math.min(totalPages, windowStart + maxVisiblePages - 1)
+  const adjustedStart = Math.max(1, windowEnd - maxVisiblePages + 1)
+  const visiblePages = Array.from(
+    { length: Math.max(0, windowEnd - adjustedStart + 1) },
+    (_, index) => adjustedStart + index,
+  )
 
   const onChange = (event) => {
     const { name, value, type, checked } = event.target
@@ -192,10 +206,10 @@ function AdminDashboard() {
         </div>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="space-y-6">
         <form
           onSubmit={handleCreate}
-          className="grid h-fit max-h-[calc(100vh-8rem)] min-w-0 gap-4 self-start overflow-y-auto border border-[var(--ink)] bg-white p-6 lg:col-span-2 lg:sticky lg:top-24"
+          className="grid min-w-0 gap-4 border border-[var(--ink)] bg-white p-6"
         >
           <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">
             Add product
@@ -272,7 +286,7 @@ function AdminDashboard() {
           </MotionButton>
         </form>
 
-        <div className="min-w-0 space-y-4 self-start lg:col-span-1 lg:sticky lg:top-24">
+        <div className="min-w-0 space-y-4">
           <div className="flex items-center justify-between border border-[var(--ink)] bg-white px-5 py-3">
             <p className="text-[11px] font-black uppercase tracking-[0.24em] text-[var(--ink)]/65">
               Inventory
@@ -283,12 +297,15 @@ function AdminDashboard() {
           </div>
 
           <div className="space-y-3">
-            {safeProducts.map((product) => (
+            {paginatedProducts.map((product, index) => (
               <article
                 key={product.id}
                 className="flex flex-wrap items-start justify-between gap-4 border border-[var(--ink)]/50 bg-[#e7e7e7] p-4 sm:flex-nowrap"
               >
                 <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <span className="mt-1 inline-flex h-6 min-w-6 items-center justify-center border border-[var(--ink)] bg-white px-1 text-[11px] font-black">
+                    {pageStart + index + 1}
+                  </span>
                   <img
                     src={
                       product.image_url ||
@@ -339,6 +356,49 @@ function AdminDashboard() {
             {safeProducts.length === 0 && (
               <div className="border border-[var(--ink)] bg-white p-6 text-sm text-[var(--ink)]/70">
                 No products yet.
+              </div>
+            )}
+
+            {safeProducts.length > 0 && (
+              <div className="flex flex-wrap gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                  disabled={activePage === 1}
+                  className="h-9 border border-[var(--ink)] bg-white px-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Go to previous page"
+                >
+                  Prev
+                </button>
+
+                {visiblePages.map((page) => {
+                  const isActive = page === activePage
+                  return (
+                    <button
+                      key={page}
+                      type="button"
+                      onClick={() => setCurrentPage(page)}
+                      className={`h-9 min-w-9 border px-3 text-sm font-black ${
+                        isActive
+                          ? 'border-[var(--ink)] bg-[var(--ink)] text-white'
+                          : 'border-[var(--ink)] bg-white text-[var(--ink)]'
+                      }`}
+                      aria-label={`Go to page ${page}`}
+                    >
+                      {page}
+                    </button>
+                  )
+                })}
+
+                <button
+                  type="button"
+                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                  disabled={activePage === totalPages}
+                  className="h-9 border border-[var(--ink)] bg-white px-3 text-sm font-black disabled:cursor-not-allowed disabled:opacity-50"
+                  aria-label="Go to next page"
+                >
+                  Next
+                </button>
               </div>
             )}
           </div>
