@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { supabase } from "../../lib/supabase.js";
 import { addToCart } from "../../lib/cart.js";
 import MotionButton from "../../components/MotionButton.jsx";
-import { motion } from "framer-motion";
+import { motion as Motion } from "framer-motion";
 
 function Shop() {
   const [products, setProducts] = useState([]);
@@ -16,8 +16,9 @@ function Shop() {
       const { data } = await supabase
         .from("products")
         .select(
-          "id,name,slug,category,description,price,image_url,is_featured,created_at,stock",
+          "id,name,variant,slug,category,description,price,image_url,is_featured,created_at,stock",
         )
+        .eq("is_archived", false)
         .order("created_at", { ascending: false });
       setProducts(data ?? []);
     };
@@ -152,7 +153,7 @@ function Shop() {
             : null;
           const isSoldOut = hasStockValue && stockValue <= 0;
           return (
-            <motion.article
+            <Motion.article
               key={item.id}
               className="border border-[var(--ink)] bg-white p-4"
               initial={{ opacity: 0, y: 12 }}
@@ -203,7 +204,7 @@ function Shop() {
                   </MotionButton>
                 )}
               </div>
-            </motion.article>
+            </Motion.article>
           );
         })}
 

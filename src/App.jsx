@@ -21,6 +21,7 @@ function App() {
   const location = useLocation();
   return (
     <Routes location={location}>
+      <Route path="/admin" element={<AdminDashboard />} />
       <Route path="/" element={<SiteLayout />}>
         <Route index element={<Home />} />
         <Route path="about" element={<About />} />
@@ -31,7 +32,6 @@ function App() {
         <Route path="login" element={<Login />} />
         <Route path="signup" element={<Signup />} />
         <Route path="dashboard" element={<Dashboard />} />
-        <Route path="admin" element={<AdminDashboard />} />
         <Route path="profile" element={<Profile />} />
         <Route path="search" element={<Search />} />
         <Route path="checkout-list" element={<CheckoutList />} />

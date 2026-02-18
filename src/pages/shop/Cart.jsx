@@ -5,14 +5,10 @@ import { supabase } from "../../lib/supabase.js";
 import MotionButton from "../../components/MotionButton.jsx";
 
 function Cart() {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(() => getCart());
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkedRole, setCheckedRole] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    setItems(getCart());
-  }, []);
 
   useEffect(() => {
     const init = async () => {

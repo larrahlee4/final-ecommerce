@@ -6,7 +6,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { useEffect, useRef, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { supabase } from "../lib/supabase.js";
 import { getCart, removeFromCart, updateQty } from "../lib/cart.js";
 import "../App.css";
@@ -37,6 +37,7 @@ function SiteLayout() {
   const addedToCartTimerRef = useRef(null);
   const isAdminRef = useRef(false);
   const isHomePage = location.pathname === "/";
+  const isProfilePage = location.pathname === "/profile";
 
   useEffect(() => {
     isAdminRef.current = isAdmin;
@@ -50,6 +51,13 @@ function SiteLayout() {
       0,
     );
     setCartCount(totalQty);
+  };
+
+  const closeSearch = () => {
+    setIsSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults([]);
+    setSearchLoading(false);
   };
 
   const handleDrawerQty = async (id, qty) => {
@@ -88,15 +96,21 @@ function SiteLayout() {
     const init = async () => {
       const { data } = await supabase.auth.getSession();
       const user = data?.session?.user;
+      const nextIsAdmin =
+        (user?.user_metadata?.role ?? "customer") === "admin";
       setSignedIn(!!user);
-      setIsAdmin((user?.user_metadata?.role ?? "customer") === "admin");
+      setIsAdmin(nextIsAdmin);
+      if (nextIsAdmin) setIsCartOpen(false);
       updateCartCount();
     };
 
     const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => {
       const user = session?.user;
+      const nextIsAdmin =
+        (user?.user_metadata?.role ?? "customer") === "admin";
       setSignedIn(!!user);
-      setIsAdmin((user?.user_metadata?.role ?? "customer") === "admin");
+      setIsAdmin(nextIsAdmin);
+      if (nextIsAdmin) setIsCartOpen(false);
     });
     const onCartAdded = (event) => {
       const detail = event?.detail ?? {};
@@ -134,11 +148,7 @@ function SiteLayout() {
   }, [isSearchOpen]);
 
   useEffect(() => {
-    if (!isSearchOpen) {
-      setSearchQuery("");
-      setSearchResults([]);
-      return;
-    }
+    if (!isSearchOpen) return;
 
     const timer = setTimeout(async () => {
       if (!searchQuery.trim()) {
@@ -151,6 +161,7 @@ function SiteLayout() {
       const { data } = await supabase
         .from("products")
         .select("id,name,slug,price,image_url")
+        .eq("is_archived", false)
         .ilike("name", `%${searchQuery.trim()}%`)
         .order("created_at", { ascending: false })
         .limit(6);
@@ -163,117 +174,154 @@ function SiteLayout() {
 
   useEffect(() => {
     const onEsc = (event) => {
-      if (event.key === "Escape") setIsSearchOpen(false);
+      if (event.key === "Escape") closeSearch();
     };
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, []);
-
-  useEffect(() => {
-    setIsSearchOpen(false);
-    setIsCartOpen(false);
-  }, [location.pathname]);
-
-  useEffect(() => {
-    if (isAdmin) {
-      setIsCartOpen(false);
-    }
-  }, [isAdmin]);
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--cream)] text-[var(--ink)]">
       <header className="sticky top-0 z-50 border-b border-[var(--ink)]/10 bg-white/40 px-6 py-6 backdrop-blur-md transition-all duration-300 hover:bg-white/60 md:px-16">
         <nav className="flex flex-wrap items-center justify-between gap-6">
           <Link
-            to="/"
+            to={isProfilePage ? "/profile" : "/"}
             className="font-display text-2xl font-bold tracking-wide"
           >
-            Veloure Beauty
+            {isProfilePage ? "Profile" : "Veloure Beauty"}
           </Link>
-          <div className="flex flex-wrap items-center gap-8 text-m font-bold">
-            <NavLink className={linkClass} to="/">
-              Home
-            </NavLink>
-            <NavLink className={linkClass} to="/about">
-              About
-            </NavLink>
-            <NavLink className={linkClass} to="/products">
-              Product
-            </NavLink>
-            <NavLink className={linkClass} to="/community">
-              Community
-            </NavLink>
-          </div>
-          <div className="relative flex items-center gap-4 text-[var(--ink)]/70">
-            {!signedIn && (
-              <NavLink
-                to="/login"
-                className="rounded-full border border-[var(--ink)]/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[var(--ink)]/70 transition hover:text-[var(--gold)]"
-              >
-                Sign in
+          {!isProfilePage && (
+            <div className="flex flex-wrap items-center gap-8 text-m font-bold">
+              <NavLink className={linkClass} to="/">
+                Home
               </NavLink>
-            )}
-            <button
-              type="button"
-              onClick={() => setIsSearchOpen((prev) => !prev)}
-              className="rounded-full border border-[var(--ink)]/10 p-2 transition hover:text-[var(--gold)]"
-              aria-label="Search"
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-              >
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.5-3.5" />
-              </svg>
-            </button>
-            {signedIn && (
-              <Link
-                to="/profile"
-                className="rounded-full border border-[var(--ink)]/10 p-2 transition hover:text-[var(--gold)]"
-                aria-label="Account"
-              >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                >
-                  <circle cx="12" cy="8" r="4" />
-                  <path d="M4 20c1.8-3.5 5-5 8-5s6.2 1.5 8 5" />
-                </svg>
-              </Link>
-            )}
-            {!isAdmin && (
-              <button
+              <NavLink className={linkClass} to="/about">
+                About
+              </NavLink>
+              <NavLink className={linkClass} to="/products">
+                Product
+              </NavLink>
+              <NavLink className={linkClass} to="/community">
+                Community
+              </NavLink>
+            </div>
+          )}
+          <div className="relative flex items-center gap-4 text-[var(--ink)]/70">
+            {isProfilePage ? (
+              <Motion.button
                 type="button"
-                onClick={() => setIsCartOpen(true)}
-                className="relative rounded-full border border-[var(--ink)]/10 p-2 transition hover:text-[var(--gold)]"
-                aria-label="Cart"
+                onClick={() => navigate("/")}
+                whileHover="hover"
+                whileTap={{ scale: 0.96 }}
+                className="inline-flex items-center gap-2 border border-[var(--ink)] px-4 py-2 text-[11px] font-black uppercase tracking-[0.16em] text-[var(--ink)]"
               >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                >
-                  <path d="M6 6h15l-2 9H8L6 6Z" />
-                  <path d="M6 6 5 3H2" />
-                </svg>
-                {cartCount > 0 && (
-                  <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--gold)] text-[10px] font-semibold text-white">
-                    {cartCount}
-                  </span>
+                <Motion.span variants={{ hover: { x: -2 } }} transition={{ duration: 0.18 }}>
+                  {"<-"}
+                </Motion.span>
+                <Motion.span variants={{ hover: { x: 2 } }} transition={{ duration: 0.18 }}>
+                  Return
+                </Motion.span>
+              </Motion.button>
+            ) : (
+              <>
+                {!signedIn && (
+                  <NavLink
+                    to="/login"
+                    className="rounded-full border border-[var(--ink)]/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-[var(--ink)]/70 transition hover:text-[var(--gold)]"
+                  >
+                    Sign in
+                  </NavLink>
                 )}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isSearchOpen) {
+                      closeSearch();
+                      return;
+                    }
+                    setIsSearchOpen(true);
+                  }}
+                  className="rounded-full border border-[var(--ink)]/10 p-2 transition hover:text-[var(--gold)]"
+                  aria-label="Search"
+                >
+                  <svg
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                  >
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m20 20-3.5-3.5" />
+                  </svg>
+                </button>
+                {signedIn && !isAdmin && (
+                  <Link
+                    to="/profile"
+                    className="rounded-full border border-[var(--ink)]/10 p-2 transition hover:text-[var(--gold)]"
+                    aria-label="Account"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    >
+                      <circle cx="12" cy="8" r="4" />
+                      <path d="M4 20c1.8-3.5 5-5 8-5s6.2 1.5 8 5" />
+                    </svg>
+                  </Link>
+                )}
+                {signedIn && isAdmin && (
+                  <Link
+                    to="/admin"
+                    className="rounded-full border border-[var(--ink)]/10 p-2 transition hover:text-[var(--gold)]"
+                    aria-label="Admin dashboard"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.7"
+                    >
+                      <rect x="3" y="3" width="8" height="8" rx="1.5" />
+                      <rect x="13" y="3" width="8" height="5" rx="1.5" />
+                      <rect x="13" y="10" width="8" height="11" rx="1.5" />
+                      <rect x="3" y="13" width="8" height="8" rx="1.5" />
+                    </svg>
+                  </Link>
+                )}
+                {!isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCartOpen(true)}
+                    className="relative rounded-full border border-[var(--ink)]/10 p-2 transition hover:text-[var(--gold)]"
+                    aria-label="Cart"
+                  >
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                    >
+                      <path d="M6 6h15l-2 9H8L6 6Z" />
+                      <path d="M6 6 5 3H2" />
+                    </svg>
+                    {cartCount > 0 && (
+                      <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-[var(--gold)] text-[10px] font-semibold text-white">
+                        {cartCount}
+                      </span>
+                    )}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </nav>
@@ -305,7 +353,7 @@ function SiteLayout() {
               <button
                 type="button"
                 className="text-3xl leading-none text-[var(--ink)]/70 transition hover:text-[var(--ink)]"
-                onClick={() => setIsSearchOpen(false)}
+                onClick={closeSearch}
                 aria-label="Close search"
               >
                 x
@@ -480,20 +528,20 @@ function SiteLayout() {
 
       <AnimatePresence>
         {addedToCartModal.open && (
-          <motion.div
+          <Motion.div
             className="fixed inset-0 z-[95] flex items-center justify-center bg-black/35 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.div
+            <Motion.div
               className="w-full max-w-sm border border-[var(--ink)] bg-white px-6 py-6 text-center shadow-2xl"
               initial={{ opacity: 0, y: 16, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
               transition={{ duration: 0.2 }}
             >
-              <motion.div
+              <Motion.div
                 className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[var(--ink)] bg-[var(--sand)]/25"
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
@@ -509,14 +557,14 @@ function SiteLayout() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <motion.path
+                  <Motion.path
                     d="m5 13 4 4L19 7"
                     initial={{ pathLength: 0 }}
                     animate={{ pathLength: 1 }}
                     transition={{ duration: 0.35, ease: "easeOut" }}
                   />
                 </svg>
-              </motion.div>
+              </Motion.div>
               <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--ink)]/65">
                 Added to bag
               </p>
@@ -543,8 +591,8 @@ function SiteLayout() {
                   View cart
                 </Link>
               </div>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 
@@ -553,7 +601,7 @@ function SiteLayout() {
           isHomePage ? "flex-1 p-0" : "flex-1 px-6 pb-20 pt-10 md:px-16"
         }
       >
-        <motion.div
+        <Motion.div
           key={location.pathname}
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
@@ -561,10 +609,10 @@ function SiteLayout() {
           transition={{ duration: 0.35, ease: "easeOut" }}
         >
           <Outlet />
-        </motion.div>
+        </Motion.div>
       </main>
 
-      <footer className="border-t border-white/15 bg-[var(--ink)] px-6 py-10 text-sm text-white md:px-16">
+      <footer className="border-t border-white/15 bg-[var(--ink)] px-6 py-7 text-sm text-white md:px-16">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="font-display text-2xl font-bold">Veloure Beauty</p>

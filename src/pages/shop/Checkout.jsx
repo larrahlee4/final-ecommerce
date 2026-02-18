@@ -4,18 +4,54 @@ import { getCart, saveCart } from '../../lib/cart.js'
 import { supabase } from '../../lib/supabase.js'
 import MotionButton from '../../components/MotionButton.jsx'
 
+const emptyAddress = {
+  fullName: '',
+  phone: '',
+  line1: '',
+  line2: '',
+  city: '',
+  state: '',
+  postalCode: '',
+  country: 'Philippines',
+}
+
+const normalizeAddress = (address) => ({
+  fullName: String(address?.fullName ?? '').trim(),
+  phone: String(address?.phone ?? '').trim(),
+  line1: String(address?.line1 ?? '').trim(),
+  line2: String(address?.line2 ?? '').trim(),
+  city: String(address?.city ?? '').trim(),
+  state: String(address?.state ?? '').trim(),
+  postalCode: String(address?.postalCode ?? '').trim(),
+  country: 'Philippines',
+})
+
+const hasAddressValues = (address) =>
+  Boolean(address.fullName || address.phone || address.line1 || address.city || address.state || address.postalCode || address.country)
+
+const buildAddressText = (address) => {
+  const lines = [
+    address.fullName,
+    address.phone,
+    [address.line1, address.line2].filter(Boolean).join(', '),
+    [address.city, address.state, address.postalCode].filter(Boolean).join(', '),
+    address.country,
+  ].filter(Boolean)
+
+  return lines.join(' | ')
+}
+
 function Checkout() {
-  const [items, setItems] = useState([])
-  const [address, setAddress] = useState('')
+  const [items] = useState(() => getCart())
+  const [address, setAddress] = useState(emptyAddress)
   const [notes, setNotes] = useState('')
   const [billing, setBilling] = useState('standard')
   const [status, setStatus] = useState('')
   const [placingOrder, setPlacingOrder] = useState(false)
+  const [savedProfileAddress, setSavedProfileAddress] = useState(emptyAddress)
+  const [hasSavedProfileAddress, setHasSavedProfileAddress] = useState(false)
+  const [saveToProfile, setSaveToProfile] = useState(true)
   const navigate = useNavigate()
-
-  useEffect(() => {
-    setItems(getCart())
-  }, [])
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.price || 0) * item.qty, 0),
@@ -42,10 +78,44 @@ function Checkout() {
   const selectedFee = billingOptions.find((option) => option.id === billing)?.fee ?? 0
   const total = subtotal + selectedFee
 
+  useEffect(() => {
+    const loadProfileDefaults = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+
+      const details = normalizeAddress(user.user_metadata?.profile_details ?? {})
+      const preferred = Boolean(user.user_metadata?.checkout_use_profile_defaults ?? true)
+      const available = hasAddressValues(details)
+
+      setSavedProfileAddress(details)
+      setHasSavedProfileAddress(available)
+      setSaveToProfile(preferred)
+
+      if (available && preferred) {
+        setAddress(details)
+      }
+    }
+
+    loadProfileDefaults()
+  }, [])
+
+  const onAddressChange = (event) => {
+    const { name, value } = event.target
+    setAddress((prev) => ({ ...prev, [name]: value }))
+  }
+
   const handleSubmit = async (event) => {
     event.preventDefault()
     setStatus('')
-    if (!address.trim()) return
+
+    const required = [address.fullName, address.phone, address.line1, address.city, address.state, address.postalCode, address.country]
+    if (required.some((value) => !String(value || '').trim())) {
+      setStatus('Please complete all required delivery fields.')
+      return
+    }
+
     if (items.length === 0) {
       setStatus('Your cart is empty.')
       return
@@ -65,19 +135,48 @@ function Checkout() {
       return
     }
 
-    const { data: orderRow, error: orderError } = await supabase
+    const normalizedAddress = normalizeAddress(address)
+
+    const nextMetadata = {
+      ...(user.user_metadata ?? {}),
+      checkout_use_profile_defaults: saveToProfile,
+    }
+    if (saveToProfile) {
+      nextMetadata.profile_details = normalizedAddress
+    }
+    await supabase.auth.updateUser({ data: nextMetadata })
+
+    const baseOrderPayload = {
+      user_id: user.id,
+      total,
+      subtotal,
+      shipping_fee: selectedFee,
+      address: buildAddressText(normalizedAddress),
+      notes: notes.trim(),
+      billing,
+      payment_status: 'confirmed',
+      payment_confirmed_at: new Date().toISOString(),
+    }
+
+    let { data: orderRow, error: orderError } = await supabase
       .from('orders')
       .insert({
-        user_id: user.id,
-        total,
-        subtotal,
-        shipping_fee: selectedFee,
-        address: address.trim(),
-        notes: notes.trim(),
-        billing,
+        ...baseOrderPayload,
+        address_json: normalizedAddress,
       })
       .select('id')
       .single()
+
+    // Backward compatibility if migration adding address_json is not applied yet.
+    if (orderError && /address_json/i.test(String(orderError.message || ''))) {
+      const retry = await supabase
+        .from('orders')
+        .insert(baseOrderPayload)
+        .select('id')
+        .single()
+      orderRow = retry.data
+      orderError = retry.error
+    }
 
     if (orderError || !orderRow) {
       setPlacingOrder(false)
@@ -108,6 +207,17 @@ function Checkout() {
       state: {
         orderId: orderRow.id,
         total,
+        subtotal,
+        shippingFee: selectedFee,
+        billing,
+        notes: notes.trim(),
+        address: normalizedAddress,
+        items: items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          qty: Number(item.qty || 0),
+          price: Number(item.price || 0),
+        })),
         itemCount: items.reduce((sum, item) => sum + Number(item.qty || 0), 0),
       },
     })
@@ -125,16 +235,125 @@ function Checkout() {
 
       <form onSubmit={handleSubmit} className="grid gap-8 lg:grid-cols-[1.16fr_0.84fr]">
         <div className="space-y-6 border border-[var(--ink)] bg-white p-6 md:p-7">
-          <label className="block text-[11px] font-black uppercase tracking-[0.25em] text-[var(--ink)]/70">
-            Home address
-            <input
-              value={address}
-              onChange={(event) => setAddress(event.target.value)}
-              className="mt-2 w-full border border-[var(--ink)] bg-white px-4 py-3 text-sm outline-none"
-              placeholder="Street, city, province"
-              required
-            />
-          </label>
+          {hasSavedProfileAddress && (
+            <div className="space-y-2 border border-[var(--ink)] bg-[var(--sand)]/25 p-4">
+              <p className="text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/70">Saved profile details</p>
+              <p className="text-xs text-[var(--ink)]/75">
+                {savedProfileAddress.fullName || 'No name'}{savedProfileAddress.phone ? ` • ${savedProfileAddress.phone}` : ''}
+              </p>
+              <MotionButton
+                type="button"
+                onClick={() => setAddress(savedProfileAddress)}
+                className="border border-[var(--ink)] bg-white px-3 py-2 text-[11px] font-black uppercase tracking-[0.1em]"
+              >
+                Use saved details
+              </MotionButton>
+            </div>
+          )}
+
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--ink)]/70">Delivery details</p>
+            <div className="mt-3 grid gap-3 md:grid-cols-2">
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65">
+                Full name
+                <input
+                  name="fullName"
+                  value={address.fullName}
+                  onChange={onAddressChange}
+                  autoComplete="name"
+                  className="mt-2 w-full border border-[var(--ink)] bg-white px-4 py-3 text-sm outline-none"
+                  placeholder="Juan Dela Cruz"
+                  required
+                />
+              </label>
+
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65">
+                Phone
+                <input
+                  name="phone"
+                  value={address.phone}
+                  onChange={onAddressChange}
+                  autoComplete="tel"
+                  className="mt-2 w-full border border-[var(--ink)] bg-white px-4 py-3 text-sm outline-none"
+                  placeholder="0917..."
+                  required
+                />
+              </label>
+
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65 md:col-span-2">
+                Street address
+                <input
+                  name="line1"
+                  value={address.line1}
+                  onChange={onAddressChange}
+                  autoComplete="address-line1"
+                  className="mt-2 w-full border border-[var(--ink)] bg-white px-4 py-3 text-sm outline-none"
+                  placeholder="House no., street, subdivision"
+                  required
+                />
+              </label>
+
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65 md:col-span-2">
+                Unit / landmark (optional)
+                <input
+                  name="line2"
+                  value={address.line2}
+                  onChange={onAddressChange}
+                  autoComplete="address-line2"
+                  className="mt-2 w-full border border-[var(--ink)] bg-white px-4 py-3 text-sm outline-none"
+                  placeholder="Building, floor, landmark"
+                />
+              </label>
+
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65">
+                City
+                <input
+                  name="city"
+                  value={address.city}
+                  onChange={onAddressChange}
+                  autoComplete="address-level2"
+                  className="mt-2 w-full border border-[var(--ink)] bg-white px-4 py-3 text-sm outline-none"
+                  required
+                />
+              </label>
+
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65">
+                Province / state
+                <input
+                  name="state"
+                  value={address.state}
+                  onChange={onAddressChange}
+                  autoComplete="address-level1"
+                  className="mt-2 w-full border border-[var(--ink)] bg-white px-4 py-3 text-sm outline-none"
+                  required
+                />
+              </label>
+
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65">
+                Postal code
+                <input
+                  name="postalCode"
+                  value={address.postalCode}
+                  onChange={onAddressChange}
+                  autoComplete="postal-code"
+                  className="mt-2 w-full border border-[var(--ink)] bg-white px-4 py-3 text-sm outline-none"
+                  required
+                />
+              </label>
+
+              <label className="block text-[11px] font-black uppercase tracking-[0.2em] text-[var(--ink)]/65">
+                Country
+                <input
+                  name="country"
+                  value="Philippines"
+                  readOnly
+                  autoComplete="country-name"
+                  className="mt-2 w-full border border-[var(--ink)] bg-[var(--sand)]/20 px-4 py-3 text-sm outline-none"
+                  required
+                />
+              </label>
+            </div>
+          </div>
 
           <label className="block text-[11px] font-black uppercase tracking-[0.25em] text-[var(--ink)]/70">
             Notes
@@ -145,6 +364,16 @@ function Checkout() {
               rows="4"
               placeholder="Landmark or delivery instructions"
             />
+          </label>
+
+          <label className="flex items-start gap-2 border border-[var(--ink)] bg-[var(--sand)]/20 px-3 py-2 text-xs text-[var(--ink)]/80">
+            <input
+              type="checkbox"
+              checked={saveToProfile}
+              onChange={(event) => setSaveToProfile(event.target.checked)}
+              className="mt-[2px]"
+            />
+            <span>Save these delivery details to my profile for future checkout.</span>
           </label>
 
           <div className="space-y-3">

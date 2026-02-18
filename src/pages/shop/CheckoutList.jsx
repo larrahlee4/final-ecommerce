@@ -1,15 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { getCart } from '../../lib/cart.js'
 import MotionButton from '../../components/MotionButton.jsx'
 
 function CheckoutList() {
-  const [items, setItems] = useState([])
+  const [items] = useState(() => getCart())
   const navigate = useNavigate()
-
-  useEffect(() => {
-    setItems(getCart())
-  }, [])
 
   const subtotal = useMemo(
     () => items.reduce((sum, item) => sum + Number(item.price || 0) * item.qty, 0),

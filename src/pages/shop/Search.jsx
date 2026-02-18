@@ -26,7 +26,8 @@ function Search() {
 
       const { data } = await supabase
         .from('products')
-        .select('id,name,slug,description,price,image_url')
+        .select('id,name,variant,slug,description,price,image_url')
+        .eq('is_archived', false)
         .ilike('name', `%${query.trim()}%`)
         .order('created_at', { ascending: false })
 

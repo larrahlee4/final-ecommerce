@@ -46,6 +46,7 @@ const reserveStock = async (productId, wantedQty) => {
       .from("products")
       .select("stock")
       .eq("id", productId)
+      .eq("is_archived", false)
       .maybeSingle();
 
     if (error || !row) {
@@ -67,6 +68,7 @@ const reserveStock = async (productId, wantedQty) => {
       .from("products")
       .update({ stock: nextStock })
       .eq("id", productId)
+      .eq("is_archived", false)
       .eq("stock", currentStock)
       .select("stock")
       .maybeSingle();
@@ -98,6 +100,7 @@ const releaseStock = async (productId, releaseQty) => {
       .from("products")
       .select("stock")
       .eq("id", productId)
+      .eq("is_archived", false)
       .maybeSingle();
 
     if (error || !row) {
@@ -110,6 +113,7 @@ const releaseStock = async (productId, releaseQty) => {
       .from("products")
       .update({ stock: nextStock })
       .eq("id", productId)
+      .eq("is_archived", false)
       .eq("stock", currentStock)
       .select("stock")
       .maybeSingle();

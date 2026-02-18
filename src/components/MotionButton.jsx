@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion'
+import { motion as Motion } from 'framer-motion'
 
 function MotionButton({ className = '', children, ...props }) {
   return (
-    <motion.button
+    <Motion.button
       whileHover={{ scale: 1.03, y: -1 }}
       whileTap={{ scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 300, damping: 20 }}
@@ -10,7 +10,7 @@ function MotionButton({ className = '', children, ...props }) {
       {...props}
     >
       {children}
-    </motion.button>
+    </Motion.button>
   )
 }
 

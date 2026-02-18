@@ -69,7 +69,12 @@ function Login() {
     const redirectTo = `${window.location.origin}/login`;
     const { error: googleError } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo },
+      options: {
+        redirectTo,
+        queryParams: {
+          prompt: "select_account",
+        },
+      },
     });
 
     if (googleError) {

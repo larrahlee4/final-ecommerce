@@ -70,8 +70,9 @@ function Home() {
       const { data } = await supabase
         .from("products")
         .select(
-          "id,name,slug,category,description,price,image_url,is_featured,stock",
+          "id,name,variant,slug,category,description,price,image_url,is_featured,stock",
         )
+        .eq("is_archived", false)
         .order("created_at", { ascending: false });
       setSmallList(data ?? []);
     };
@@ -417,8 +418,8 @@ function Home() {
         </div>
       </section>
 
-      <section className="px-6 md:px-14">
-        <p className="mx-auto max-w-5xl text-left text-4xl font-black leading-[1.05] text-black md:text-7xl">
+      <section className="-mt-4 px-6 md:-mt-6 md:px-14">
+        <p className="mx-auto max-w-4xl text-center text-3xl font-black leading-[1.1] text-black md:text-5xl">
           When beauty feels easy, self-expression becomes unstoppable.
         </p>
       </section>

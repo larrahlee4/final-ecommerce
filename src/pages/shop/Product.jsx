@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion as Motion } from "framer-motion";
 import { supabase } from "../../lib/supabase.js";
 import { addToCart } from "../../lib/cart.js";
 import MotionButton from "../../components/MotionButton.jsx";
@@ -27,6 +27,17 @@ function Product() {
     : null;
   const isSoldOut = hasStockValue && stockValue <= 0;
 
+  const loadStoredReviews = (productId) => {
+    const key = `veloure_reviews_${productId}`;
+    const raw = window.localStorage.getItem(key);
+    if (!raw) return [];
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       const { data: sessionData } = await supabase.auth.getSession();
@@ -41,15 +52,18 @@ function Product() {
       setIsAdmin(role === "admin");
       const { data } = await supabase
         .from("products")
-        .select("id,name,category,description,price,image_url,stock")
+        .select("id,name,variant,category,description,price,image_url,stock")
         .eq("slug", slug)
+        .eq("is_archived", false)
         .maybeSingle();
       setProduct(data ?? null);
+      setReviews(data?.id ? loadStoredReviews(data.id) : []);
       if (data?.category) {
         const { data: recs } = await supabase
           .from("products")
-          .select("id,name,slug,price,image_url,stock")
+          .select("id,name,variant,slug,price,image_url,stock")
           .eq("category", data.category)
+          .eq("is_archived", false)
           .neq("id", data.id)
           .limit(3);
         setRecommendations(recs ?? []);
@@ -62,38 +76,12 @@ function Product() {
   }, [slug]);
 
   useEffect(() => {
-    if (!product?.id) return;
-    const key = `veloure_reviews_${product.id}`;
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      setReviews([]);
-      return;
-    }
-    try {
-      setReviews(JSON.parse(raw));
-    } catch {
-      setReviews([]);
-    }
-  }, [product?.id]);
-
-  useEffect(() => {
     const onEsc = (event) => {
       if (event.key === "Escape") setIsZoomOpen(false);
     };
     window.addEventListener("keydown", onEsc);
     return () => window.removeEventListener("keydown", onEsc);
   }, []);
-
-  useEffect(() => {
-    if (!hasStockValue) return;
-    if (stockValue === 0) {
-      setQty(1);
-      return;
-    }
-    if (qty > stockValue) {
-      setQty(stockValue);
-    }
-  }, [hasStockValue, stockValue, qty]);
 
   const sections = useMemo(
     () => [
@@ -390,20 +378,20 @@ function Product() {
 
       <AnimatePresence>
         {addedModalOpen && (
-          <motion.div
+          <Motion.div
             className="fixed inset-0 z-[96] flex items-center justify-center bg-black/35 p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <motion.div
+            <Motion.div
               className="w-full max-w-sm border border-[var(--ink)] bg-white px-6 py-6 text-center shadow-2xl"
               initial={{ opacity: 0, y: 16, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 12, scale: 0.98 }}
               transition={{ duration: 0.2 }}
             >
-              <motion.div
+              <Motion.div
                 className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[var(--ink)] bg-[var(--sand)]/25"
                 initial={{ scale: 0.9 }}
                 animate={{ scale: 1 }}
@@ -419,14 +407,14 @@ function Product() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <motion.path
+                  <Motion.path
                     d="m5 13 4 4L19 7"
                     initial={{ pathLength: 0 }}
                     animate={{ pathLength: 1 }}
                     transition={{ duration: 0.35, ease: "easeOut" }}
                   />
                 </svg>
-              </motion.div>
+              </Motion.div>
               <p className="text-[11px] font-black uppercase tracking-[0.25em] text-[var(--ink)]/65">
                 Added to bag
               </p>
@@ -452,8 +440,8 @@ function Product() {
                   View cart
                 </button>
               </div>
-            </motion.div>
-          </motion.div>
+            </Motion.div>
+          </Motion.div>
         )}
       </AnimatePresence>
 

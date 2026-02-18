@@ -1,1 +1,19 @@
 @import "tailwindcss";
+
+.admin-dashboard button {
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.2s ease,
+    filter 0.2s ease;
+  transform: translateY(0) scale(1);
+}
+
+.admin-dashboard button:hover:not(:disabled) {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 8px 18px -14px rgba(15, 23, 42, 0.5);
+  filter: brightness(1.01);
+}
+
+.admin-dashboard button:active:not(:disabled) {
+  transform: translateY(0) scale(0.97);
+}
