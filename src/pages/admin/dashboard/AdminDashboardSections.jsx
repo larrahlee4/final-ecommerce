@@ -89,6 +89,7 @@ function AdminIcon({ name, className = "h-4 w-4" }) {
 }
 
 const toCurrency = (value) => `PHP ${Number(value || 0).toFixed(2)}`
+const formatPaymentStatus = (status) => String(status || "pending").toLowerCase()
 
 const sumRevenue = (rows) =>
   rows.reduce((sum, row) => sum + Number(row.total || 0), 0)
@@ -358,7 +359,20 @@ function UsersPage({
   )
 }
 
-function OrdersPage({ loadingOrders, orders, onRefresh }) {
+function OrdersPage({
+  loadingOrders,
+  orders,
+  onRefresh,
+  onConfirmOrder,
+  confirmingOrderId,
+  title = "Orders",
+  hidePaymentColumns = false,
+}) {
+  const columns = hidePaymentColumns
+    ? ["Order", "Created", "Customer", "Address", "Total", "Actions"]
+    : ["Order", "Created", "Customer", "Address", "Total", "Payment status", "Confirmed at", "Actions"]
+  const colSpan = columns.length
+
   return (
     <Motion.section
       {...pageMotion}
@@ -368,7 +382,7 @@ function OrdersPage({ loadingOrders, orders, onRefresh }) {
       <div className="flex items-center justify-between gap-2">
         <h2 className="inline-flex items-center gap-2 text-xl font-semibold text-slate-900">
           <AdminIcon name="orders" className="h-5 w-5" />
-          Orders
+          {title}
         </h2>
         <button
           type="button"
@@ -384,7 +398,7 @@ function OrdersPage({ loadingOrders, orders, onRefresh }) {
         <table className="w-full min-w-[940px] border-separate border-spacing-y-2 text-left">
           <thead>
             <tr>
-              {["Order", "Created", "Customer", "Address", "Total", "Payment status", "Confirmed at"].map((label) => (
+              {columns.map((label) => (
                 <th key={label} className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                   {label}
                 </th>
@@ -394,32 +408,52 @@ function OrdersPage({ loadingOrders, orders, onRefresh }) {
           <tbody>
             {loadingOrders && (
               <tr>
-                <td colSpan={7} className="rounded-xl bg-white/80 px-3 py-8 text-center text-sm text-slate-500">
+                <td colSpan={colSpan} className="rounded-xl bg-white/80 px-3 py-8 text-center text-sm text-slate-500">
                   Loading orders...
                 </td>
               </tr>
             )}
             {!loadingOrders && orders.length === 0 && (
               <tr>
-                <td colSpan={7} className="rounded-xl bg-white/80 px-3 py-8 text-center text-sm text-slate-500">
+                <td colSpan={colSpan} className="rounded-xl bg-white/80 px-3 py-8 text-center text-sm text-slate-500">
                   No orders found.
                 </td>
               </tr>
             )}
             {!loadingOrders &&
-              orders.map((order) => (
-                <tr key={order.id} className="rounded-xl bg-white/80 shadow-sm">
-                  <td className="px-3 py-3 text-sm text-slate-700">{order.id.slice(0, 8)}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{new Date(order.created_at).toLocaleString()}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{order.user_id}</td>
-                  <td className="max-w-sm px-3 py-3 text-xs text-slate-700">{order.address || "N/A"}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">PHP {Number(order.total || 0).toFixed(2)}</td>
-                  <td className="px-3 py-3 text-sm text-slate-700">{order.payment_status || "pending"}</td>
-                  <td className="px-3 py-3 text-xs text-slate-700">
-                    {order.payment_confirmed_at ? new Date(order.payment_confirmed_at).toLocaleString() : "-"}
-                  </td>
-                </tr>
-              ))}
+              orders.map((order) => {
+                const status = formatPaymentStatus(order.payment_status)
+                const canConfirm = status === "pending" || status === "paid"
+                return (
+                  <tr key={order.id} className="rounded-xl bg-white/80 shadow-sm">
+                    <td className="px-3 py-3 text-sm text-slate-700">{order.id.slice(0, 8)}</td>
+                    <td className="px-3 py-3 text-sm text-slate-700">{new Date(order.created_at).toLocaleString()}</td>
+                    <td className="px-3 py-3 text-sm text-slate-700">{order.user_id}</td>
+                    <td className="max-w-sm px-3 py-3 text-xs text-slate-700">{order.address || "N/A"}</td>
+                    <td className="px-3 py-3 text-sm text-slate-700">PHP {Number(order.total || 0).toFixed(2)}</td>
+                    {!hidePaymentColumns && <td className="px-3 py-3 text-sm text-slate-700">{status}</td>}
+                    {!hidePaymentColumns && (
+                      <td className="px-3 py-3 text-xs text-slate-700">
+                        {order.payment_confirmed_at ? new Date(order.payment_confirmed_at).toLocaleString() : "-"}
+                      </td>
+                    )}
+                    <td className="px-3 py-3 text-xs text-slate-700">
+                      {canConfirm ? (
+                        <button
+                          type="button"
+                          onClick={() => onConfirmOrder(order)}
+                          disabled={confirmingOrderId === order.id}
+                          className="rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-xs text-emerald-700 disabled:opacity-50"
+                        >
+                          {confirmingOrderId === order.id ? "Confirming..." : "Confirm"}
+                        </button>
+                      ) : (
+                        <span className="text-slate-500">No action</span>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
           </tbody>
         </table>
       </div>
@@ -529,7 +563,7 @@ function CustomersPage({
         <table className="w-full min-w-[980px] border-separate border-spacing-y-2 text-left">
           <thead>
             <tr>
-              {["Customer", "Orders", "LTV", "Avg Order", "Repeat", "Last Order", "Actions"].map((label) => (
+              {["Customer", "Orders", "Pending Conf.", "LTV", "Avg Order", "Repeat", "Last Order", "Actions"].map((label) => (
                 <th key={label} className="px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                   {label}
                 </th>
@@ -539,14 +573,14 @@ function CustomersPage({
           <tbody>
             {loadingCustomers && (
               <tr>
-                <td colSpan={7} className="rounded-xl bg-white/80 px-3 py-8 text-center text-sm text-slate-500">
+                <td colSpan={8} className="rounded-xl bg-white/80 px-3 py-8 text-center text-sm text-slate-500">
                   Loading customer history...
                 </td>
               </tr>
             )}
             {!loadingCustomers && pageRows.length === 0 && (
               <tr>
-                <td colSpan={7} className="rounded-xl bg-white/80 px-3 py-8 text-center text-sm text-slate-500">
+                <td colSpan={8} className="rounded-xl bg-white/80 px-3 py-8 text-center text-sm text-slate-500">
                   No customers found.
                 </td>
               </tr>
@@ -565,6 +599,7 @@ function CustomersPage({
                     <p className="text-xs text-slate-500">{customer.customerId}</p>
                   </td>
                   <td className="px-3 py-3 text-sm text-slate-700">{customer.orderCount}</td>
+                  <td className="px-3 py-3 text-sm text-slate-700">{customer.pendingConfirmationCount || 0}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{toCurrency(customer.ltv)}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{toCurrency(customer.avgOrderValue)}</td>
                   <td className="px-3 py-3 text-sm text-slate-700">{customer.repeatRate.toFixed(1)}%</td>
@@ -680,6 +715,9 @@ function CustomerDetailDrawer({ customer, onClose }) {
                 <p>{new Date(order.createdAt).toLocaleString()}</p>
                 <p>{toCurrency(order.total)}</p>
               </div>
+              {order.confirmedAt && (
+                <p className="mt-1 text-xs text-slate-500">Confirmed at {new Date(order.confirmedAt).toLocaleString()}</p>
+              )}
               <p className="mt-2 text-xs text-slate-600">Address: {order.address || "N/A"}</p>
               {order.notes && <p className="mt-1 text-xs text-slate-600">Notes: {order.notes}</p>}
               <div className="mt-3 space-y-1 border-t border-slate-200 pt-2 text-xs text-slate-700">
@@ -714,7 +752,7 @@ function AnalyticsPage({ loadingRevenue, revenueStats, orders, customers, onRefr
 
   const paidOrders = useMemo(() => {
     return (orders ?? []).filter((row) => {
-      const status = String(row.payment_status || "confirmed").toLowerCase()
+      const status = String(row.payment_status || "pending").toLowerCase()
       return status === "paid" || status === "confirmed"
     })
   }, [orders])

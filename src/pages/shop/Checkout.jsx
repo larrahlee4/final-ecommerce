@@ -154,8 +154,7 @@ function Checkout() {
       address: buildAddressText(normalizedAddress),
       notes: notes.trim(),
       billing,
-      payment_status: 'confirmed',
-      payment_confirmed_at: new Date().toISOString(),
+      payment_status: 'pending',
     }
 
     let { data: orderRow, error: orderError } = await supabase

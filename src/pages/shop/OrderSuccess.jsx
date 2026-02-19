@@ -27,10 +27,10 @@ function OrderSuccess() {
   return (
     <section className="space-y-8">
       <div className="border border-[var(--ink)] bg-white px-6 py-8 md:px-10">
-        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Order confirmed</p>
-        <h1 className="mt-3 text-4xl font-black uppercase leading-none md:text-5xl">Your order is confirmed</h1>
+        <p className="text-[11px] font-black uppercase tracking-[0.3em] text-[var(--ink)]/65">Order received</p>
+        <h1 className="mt-3 text-4xl font-black uppercase leading-none md:text-5xl">Your order is pending confirmation</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--ink)]/75">
-          We received your order and will prepare it for shipment.
+          We received your order and an admin will confirm it before shipment.
         </p>
       </div>
 

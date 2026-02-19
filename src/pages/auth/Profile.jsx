@@ -216,7 +216,7 @@ function Profile() {
         shippingFee: Number(order.shipping_fee || 0),
         address: order.address ?? "",
         notes: order.notes ?? "",
-        paymentStatus: order.payment_status ?? "confirmed",
+        paymentStatus: order.payment_status ?? "pending",
         items: itemsByOrderId[order.id] ?? [],
       }));
 

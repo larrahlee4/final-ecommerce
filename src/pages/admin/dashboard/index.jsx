@@ -8,8 +8,6 @@ import {
   ActivityPage,
   AdminIcon,
   AnalyticsPage,
-  CustomersPage,
-  CustomerDetailDrawer,
   OrdersPage,
   PlaceholderPanel,
   UsersPage,
@@ -18,13 +16,13 @@ import {
 const Motion = motion
 
 const navItems = [
-  { id: "dashboard", label: "Dashboard" },
-  { id: "activity", label: "Activity" },
-  { id: "orders", label: "Orders" },
-  { id: "customers", label: "Customers" },
-  { id: "users", label: "Users" },
-  { id: "products", label: "Products" },
-  { id: "analytics", label: "Analytics" },
+  { id: "dashboard", label: "Dashboard", icon: "dashboard" },
+  { id: "activity", label: "Activity", icon: "activity" },
+  { id: "pendingOrders", label: "Pending Orders", icon: "orders" },
+  { id: "orders", label: "All Orders", icon: "orders" },
+  { id: "users", label: "Users", icon: "users" },
+  { id: "products", label: "Products", icon: "products" },
+  { id: "analytics", label: "Analytics", icon: "analytics" },
 ]
 
 const emptyForm = {
@@ -50,6 +48,8 @@ const slugify = (value) =>
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)/g, "")
+
+const normalizeText = (value) => String(value ?? "").trim().toLowerCase()
 
 const toCurrency = (value) => `PHP ${Number(value || 0).toFixed(2)}`
 
@@ -110,7 +110,7 @@ function AdminDashboard() {
   const [loadingOrders, setLoadingOrders] = useState(false)
   const [customers, setCustomers] = useState([])
   const [loadingCustomers, setLoadingCustomers] = useState(false)
-  const [selectedCustomer, setSelectedCustomer] = useState(null)
+  const [confirmingOrderId, setConfirmingOrderId] = useState("")
   const [revenueStats, setRevenueStats] = useState(null)
   const [loadingRevenue, setLoadingRevenue] = useState(false)
 
@@ -123,8 +123,6 @@ function AdminDashboard() {
   const [userSortBy, setUserSortBy] = useState("lastSeen")
   const [userSortDirection, setUserSortDirection] = useState("desc")
   const [userPage, setUserPage] = useState(1)
-  const [customerSearch, setCustomerSearch] = useState("")
-  const [customerPage, setCustomerPage] = useState(1)
 
   const isAdmin = userRole === "admin"
 
@@ -202,11 +200,14 @@ function AdminDashboard() {
       const customerId = row.user_id || "unknown"
       const existing = byCustomer.get(customerId)
       const addressJson = row.address_json && typeof row.address_json === "object" ? row.address_json : {}
+      const paymentStatus = row.payment_status || "pending"
+      const pendingConfirmation = String(paymentStatus).toLowerCase() === "pending" ? 1 : 0
       const orderEntry = {
         id: row.id,
         total: Number(row.total || 0),
         createdAt: row.created_at,
-        paymentStatus: row.payment_status || "pending",
+        paymentStatus,
+        confirmedAt: row.payment_confirmed_at || null,
         address: row.address || "",
         notes: row.notes || "",
         items: itemsByOrder[row.id] ?? [],
@@ -219,12 +220,14 @@ function AdminDashboard() {
           phone: addressJson.phone || "",
           latestAddress: row.address || "",
           orderCount: 1,
+          pendingConfirmationCount: pendingConfirmation,
           ltv: Number(row.total || 0),
           lastOrderAt: row.created_at,
           orders: [orderEntry],
         })
       } else {
         existing.orderCount += 1
+        existing.pendingConfirmationCount = (existing.pendingConfirmationCount || 0) + pendingConfirmation
         existing.ltv += Number(row.total || 0)
         existing.orders.push(orderEntry)
       }
@@ -303,7 +306,7 @@ function AdminDashboard() {
     const validRows = rows.filter((row) => {
       const timestamp = new Date(row.created_at).getTime()
       if (Number.isNaN(timestamp)) return false
-      const status = String(row.payment_status || "confirmed").toLowerCase()
+      const status = String(row.payment_status || "pending").toLowerCase()
       return status === "paid" || status === "confirmed"
     })
 
@@ -492,6 +495,23 @@ function AdminDashboard() {
       archived_at: null,
     }
 
+    const nextName = normalizeText(payload.name)
+    const nextVariant = normalizeText(payload.variant)
+    const hasDuplicate = products.some((item) => {
+      if (item?.is_archived) return false
+      const currentName = normalizeText(item?.name)
+      const currentVariant = normalizeText(item?.variant)
+      if (currentName !== nextName) return false
+      if (!nextVariant) return true
+      return !currentVariant || currentVariant === nextVariant
+    })
+
+    if (hasDuplicate) {
+      setLoadingCreate(false)
+      setStatus("Duplicate product detected. Use a unique name or unique name + variant.")
+      return
+    }
+
     const { data, error } = await supabase.from("products").insert(payload).select("id,name").single()
     setLoadingCreate(false)
 
@@ -635,6 +655,40 @@ function AdminDashboard() {
     await Promise.all([loadProducts(), loadOrders(), loadAdminActions(), loadAdminAccounts()])
   }
 
+  const handleConfirmOrder = async (order) => {
+    if (!order?.id) return
+    const currentStatus = String(order.payment_status || "pending").toLowerCase()
+    if (currentStatus !== "pending" && currentStatus !== "paid") return
+
+    setStatus("")
+    setConfirmingOrderId(order.id)
+
+    const { error } = await supabase
+      .from("orders")
+      .update({
+        payment_status: "confirmed",
+        payment_confirmed_at: new Date().toISOString(),
+      })
+      .eq("id", order.id)
+
+    if (error) {
+      setStatus(error.message)
+      setConfirmingOrderId("")
+      return
+    }
+
+    await logAdminAction({
+      actionType: "order.confirm",
+      targetType: "order",
+      targetId: order.id,
+      summary: `Confirmed order ${order.id.slice(0, 8)}`,
+      metadata: { previousStatus: currentStatus, nextStatus: "confirmed" },
+    })
+
+    setConfirmingOrderId("")
+    await Promise.all([loadOrders(), loadCustomers(), loadRevenueAnalytics(), loadAdminActions(), loadAdminAccounts()])
+  }
+
   const stats = useMemo(() => {
     const totalProducts = products.length
     const totalStock = products.reduce((sum, item) => sum + Number(item.stock || 0), 0)
@@ -650,18 +704,21 @@ function AdminDashboard() {
 
   const revenueSnapshot = useMemo(() => {
     const now = new Date()
+    const dayStart = startOfDay(now)
     const weekStart = startOfWeek(now)
     const monthStart = startOfMonth(now)
     const yearStart = startOfYear(now)
     const isPaid = (row) => {
-      const status = String(row.payment_status || "confirmed").toLowerCase()
+      const status = String(row.payment_status || "pending").toLowerCase()
       return status === "paid" || status === "confirmed"
     }
     const paidOrders = orders.filter(isPaid)
+    const daily = paidOrders.filter((row) => new Date(row.created_at) >= dayStart)
     const weekly = paidOrders.filter((row) => new Date(row.created_at) >= weekStart)
     const monthly = paidOrders.filter((row) => new Date(row.created_at) >= monthStart)
     const yearly = paidOrders.filter((row) => new Date(row.created_at) >= yearStart)
     return [
+      { label: "Daily Revenue", total: sumRevenue(daily), count: daily.length },
       { label: "Weekly Revenue", total: sumRevenue(weekly), count: weekly.length },
       { label: "Monthly Revenue", total: sumRevenue(monthly), count: monthly.length },
       { label: "Annual Revenue", total: sumRevenue(yearly), count: yearly.length },
@@ -673,6 +730,11 @@ function AdminDashboard() {
     next.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
     return next.slice(0, 6)
   }, [orders])
+
+  const pendingOrders = useMemo(
+    () => orders.filter((row) => String(row.payment_status || "pending").toLowerCase() === "pending"),
+    [orders],
+  )
 
   const stockAlerts = useMemo(() => {
     const next = products
@@ -804,7 +866,7 @@ function AdminDashboard() {
                     whileTap={{ scale: 0.94, rotate: 0 }}
                     transition={{ type: "spring", stiffness: 320, damping: 18 }}
                   >
-                    <AdminIcon name={item.id} className="h-4 w-4" />
+                    <AdminIcon name={item.icon ?? item.id} className="h-4 w-4" />
                   </Motion.span>
                   {!sidebarCollapsed && (
                     <Motion.span
@@ -867,7 +929,7 @@ function AdminDashboard() {
                         whileTap={{ scale: 0.94, rotate: 0 }}
                         transition={{ type: "spring", stiffness: 320, damping: 18 }}
                       >
-                        <AdminIcon name={item.id} className="h-4 w-4" />
+                        <AdminIcon name={item.icon ?? item.id} className="h-4 w-4" />
                       </Motion.span>
                       <Motion.span
                         animate={activePage === item.id ? { x: 1 } : { x: 0 }}
@@ -955,7 +1017,7 @@ function AdminDashboard() {
                     ))}
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
                     {revenueSnapshot.map((entry, index) => (
                       <Motion.article
                         key={entry.label}
@@ -1078,20 +1140,22 @@ function AdminDashboard() {
                   loadingOrders={loadingOrders}
                   orders={orders}
                   onRefresh={loadOrders}
+                  onConfirmOrder={handleConfirmOrder}
+                  confirmingOrderId={confirmingOrderId}
+                  title="All Orders"
                 />
               )}
 
-              {activePage === "customers" && (
-                <CustomersPage
-                  key="customers"
-                  loadingCustomers={loadingCustomers}
-                  customers={customers}
-                  customerSearch={customerSearch}
-                  setCustomerSearch={setCustomerSearch}
-                  customerPage={customerPage}
-                  setCustomerPage={setCustomerPage}
-                  onRefresh={loadCustomers}
-                  onOpenCustomer={setSelectedCustomer}
+              {activePage === "pendingOrders" && (
+                <OrdersPage
+                  key="pending-orders"
+                  loadingOrders={loadingOrders}
+                  orders={pendingOrders}
+                  onRefresh={loadOrders}
+                  onConfirmOrder={handleConfirmOrder}
+                  confirmingOrderId={confirmingOrderId}
+                  title="Pending Orders"
+                  hidePaymentColumns
                 />
               )}
 
@@ -1381,12 +1445,6 @@ function AdminDashboard() {
           </div>
         </div>
       )}
-
-      <AnimatePresence>
-        {selectedCustomer && (
-          <CustomerDetailDrawer customer={selectedCustomer} onClose={() => setSelectedCustomer(null)} />
-        )}
-      </AnimatePresence>
     </div>
   )
 }

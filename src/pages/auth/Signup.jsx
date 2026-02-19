@@ -7,6 +7,7 @@ import signupPhoto from "../../assets/picture1.jpg";
 function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [acceptedPolicy, setAcceptedPolicy] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
@@ -43,13 +44,24 @@ function Signup() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
+
+    if (!acceptedPolicy) {
+      setError("Please accept the privacy and data use policy to continue.");
+      return;
+    }
+
     setLoading(true);
 
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { role: "customer" },
+        data: {
+          role: "customer",
+          accepted_policy: true,
+          accepted_policy_at: new Date().toISOString(),
+          accepted_policy_version: "2026-02",
+        },
       },
     });
 
@@ -64,6 +76,10 @@ function Signup() {
 
   const handleGoogleSignup = async () => {
     setError("");
+    if (!acceptedPolicy) {
+      setError("Please accept the privacy and data use policy to continue.");
+      return;
+    }
     setGoogleLoading(true);
     const redirectTo = `${window.location.origin}/login`;
     const { error: googleError } = await supabase.auth.signInWithOAuth({
@@ -124,6 +140,23 @@ function Signup() {
                 minLength={6}
                 required
               />
+            </label>
+
+            <label className="block border border-[var(--ink)] bg-white/70 px-4 py-3 text-xs leading-5 text-[var(--ink)]/85">
+              <span className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  checked={acceptedPolicy}
+                  onChange={(event) => setAcceptedPolicy(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 border border-[var(--ink)]"
+                  required
+                />
+                <span>
+                  I agree that Veloure Beauty may use my data (email, account details, orders, and delivery
+                  information) to create and secure my account, process purchases, provide customer support, and send
+                  service updates related to my orders.
+                </span>
+              </span>
             </label>
 
             {error && <p className="text-sm text-red-600">{error}</p>}
