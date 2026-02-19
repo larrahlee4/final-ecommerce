@@ -155,7 +155,7 @@ function Shop() {
           return (
             <Motion.article
               key={item.id}
-              className="border border-[var(--ink)] bg-white p-4"
+              className="flex h-full flex-col border border-[var(--ink)] bg-white p-4"
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.35, delay: index * 0.04 }}
@@ -175,34 +175,38 @@ function Shop() {
                   )}
                 </div>
               </Link>
-              <p className="mt-4 text-xl font-black uppercase leading-tight">
-                {item.name}
-              </p>
-              <p className="mt-2 min-h-[44px] text-sm leading-5 text-[var(--ink)]/75">
-                {item.description ||
-                  "Clean formula with high-performance results."}
-              </p>
-              <p className="mt-2 text-[11px] font-black uppercase tracking-[0.18em] text-[var(--ink)]/60">
-                Stock:{" "}
-                {isSoldOut
-                  ? "Sold out"
-                  : hasStockValue
-                    ? stockValue
-                    : "Available"}
-              </p>
-              <div className="mt-4 flex items-center justify-between gap-3">
-                <span className="text-base font-black">
-                  PHP {Number(item.price || 0).toFixed(2)}
-                </span>
-                {!isAdmin && (
-                  <MotionButton
-                    className="border border-[var(--ink)] bg-white px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] transition hover:bg-[var(--ink)] hover:text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9] disabled:hover:text-[#666]"
-                    onClick={() => handleAddToCart(item, 1)}
-                    disabled={isSoldOut}
-                  >
-                    {isSoldOut ? "Sold out" : "Add to bag"}
-                  </MotionButton>
-                )}
+              <div className="mt-4 flex flex-1 flex-col">
+                <p className="min-h-[48px] text-xl font-black uppercase leading-tight">
+                  {item.name}
+                </p>
+                <p className="mt-2 min-h-[44px] text-sm leading-5 text-[var(--ink)]/75">
+                  {item.description ||
+                    "Clean formula with high-performance results."}
+                </p>
+                <div className="mt-auto pt-3">
+                  <p className="text-[11px] font-black uppercase tracking-[0.18em] text-[var(--ink)]/60">
+                    Stock:{" "}
+                    {isSoldOut
+                      ? "Sold out"
+                      : hasStockValue
+                        ? stockValue
+                        : "Available"}
+                  </p>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <span className="text-base font-black">
+                      PHP {Number(item.price || 0).toFixed(2)}
+                    </span>
+                    {!isAdmin && (
+                      <MotionButton
+                        className="border border-[var(--ink)] bg-white px-3 py-2 text-[11px] font-black uppercase tracking-[0.16em] transition hover:bg-[var(--ink)] hover:text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9] disabled:hover:text-[#666]"
+                        onClick={() => handleAddToCart(item, 1)}
+                        disabled={isSoldOut}
+                      >
+                        {isSoldOut ? "Sold out" : "Add to bag"}
+                      </MotionButton>
+                    )}
+                  </div>
+                </div>
               </div>
             </Motion.article>
           );

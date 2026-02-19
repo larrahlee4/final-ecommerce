@@ -210,7 +210,7 @@ function Home() {
       </div>
 
       {items.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid grid-cols-1 items-stretch gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {items.slice(0, 8).map((item) => {
             const hasStockValue =
               item.stock !== null && item.stock !== undefined;
@@ -221,7 +221,7 @@ function Home() {
             return (
               <article
                 key={item.id}
-                className="group border border-black/10 bg-white p-3 shadow-[0_16px_40px_-24px_rgba(0,0,0,0.45)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_40px_-24px_rgba(0,0,0,0.5)]"
+                className="group flex h-full flex-col border border-black/10 bg-white p-3 shadow-[0_16px_40px_-24px_rgba(0,0,0,0.45)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_26px_40px_-24px_rgba(0,0,0,0.5)]"
               >
                 <button
                   type="button"
@@ -245,7 +245,7 @@ function Home() {
                   </div>
                 </button>
 
-                <div className="mt-4 space-y-2">
+                <div className="mt-4 flex flex-1 flex-col">
                   <div className="flex items-start justify-between gap-3">
                     <h4 className="text-lg font-black uppercase leading-[1.05] text-black">
                       {item.name}
@@ -254,11 +254,11 @@ function Home() {
                       P{Number(item.price || 0).toFixed(2)}
                     </span>
                   </div>
-                  <p className="min-h-[40px] text-sm leading-5 text-black/70">
+                  <p className="mt-2 text-sm leading-5 text-black/70">
                     {item.description ||
                       "Clean formula with high-performance results."}
                   </p>
-                  <p className="text-[11px] font-black uppercase tracking-[0.16em] text-black/60">
+                  <p className="mt-2 text-[11px] font-black uppercase tracking-[0.16em] text-black/60">
                     Stock:{" "}
                     {isSoldOut
                       ? "Sold out"
@@ -268,7 +268,7 @@ function Home() {
                   </p>
                   {!isAdmin && (
                     <MotionButton
-                      className="w-full rounded-md border border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9] disabled:hover:text-[#666]"
+                      className="mt-auto w-full rounded-md border border-black bg-white px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-black transition hover:bg-black hover:text-white disabled:cursor-not-allowed disabled:border-[#b7b7b7] disabled:bg-[#d9d9d9] disabled:text-[#666] disabled:hover:bg-[#d9d9d9] disabled:hover:text-[#666]"
                       onClick={() => handleAddToCart(item, 1)}
                       disabled={isSoldOut}
                     >
